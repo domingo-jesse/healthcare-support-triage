@@ -763,25 +763,25 @@ with middle_col:
             st.info(
                 f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}"
             )
-            combined_options = [
-                (urgency, progress)
-                for urgency in ("low", "medium", "high")
-                for progress in PROGRESS_OPTIONS
-            ]
-            default_progress = current_status if current_status in PROGRESS_OPTIONS else "in_progress"
-            default_pair = (current_urgency, default_progress)
-            default_index = (
-                combined_options.index(default_pair) if default_pair in combined_options else 0
-            )
+            urgency_options = ["low", "medium", "high"]
+            status_options = list(PROGRESS_OPTIONS)
+            default_progress = current_status if current_status in status_options else "in_progress"
+            default_urgency = current_urgency if current_urgency in urgency_options else "medium"
 
-            combined_choice = st.selectbox(
-                "Urgency + Progress",
-                options=combined_options,
-                index=default_index,
-                format_func=lambda pair: f"{pair[0].title()} • {STATUS_LABELS[pair[1]]}",
-                key=f"selected_combined_state_{selected.get('saved_id')}",
+            urgency_choice = st.selectbox(
+                "Urgency",
+                options=urgency_options,
+                index=urgency_options.index(default_urgency),
+                format_func=lambda urgency: urgency.title(),
+                key=f"selected_urgency_{selected.get('saved_id')}",
             )
-            urgency_choice, progress_choice = combined_choice
+            progress_choice = st.selectbox(
+                "Progress",
+                options=status_options,
+                index=status_options.index(default_progress),
+                format_func=lambda status: STATUS_LABELS[status],
+                key=f"selected_progress_{selected.get('saved_id')}",
+            )
             if urgency_choice != current_urgency or progress_choice != current_status:
                 selected_ticket["urgency"] = urgency_choice
                 selected["status"] = progress_choice
