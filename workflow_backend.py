@@ -103,6 +103,15 @@ class WorkflowInput(BaseModel):
     input_as_text: str
 
 
+def default_run_config() -> RunConfig:
+    return RunConfig(
+        trace_metadata={
+            "__trace_source__": "agent-builder",
+            "workflow_id": "wf_69ca443212748190a88bbb4492f3a1c70743dc1c484b9af8",
+        }
+    )
+
+
 async def run_workflow(workflow_input: WorkflowInput):
     with trace("New agent"):
         workflow = workflow_input.model_dump()
@@ -122,12 +131,7 @@ async def run_workflow(workflow_input: WorkflowInput):
         classifier_result_temp = await Runner.run(
             classifier,
             input=[*conversation_history],
-            run_config=RunConfig(
-                trace_metadata={
-                    "__trace_source__": "agent-builder",
-                    "workflow_id": "wf_69ca443212748190a88bbb4492f3a1c70743dc1c484b9af8",
-                }
-            ),
+            run_config=default_run_config(),
         )
 
         conversation_history.extend(
@@ -143,12 +147,7 @@ async def run_workflow(workflow_input: WorkflowInput):
             ticket_agent_result_temp = await Runner.run(
                 ticket_agent,
                 input=[*conversation_history],
-                run_config=RunConfig(
-                    trace_metadata={
-                        "__trace_source__": "agent-builder",
-                        "workflow_id": "wf_69ca443212748190a88bbb4492f3a1c70743dc1c484b9af8",
-                    }
-                ),
+                run_config=default_run_config(),
             )
 
             conversation_history.extend(
@@ -163,16 +162,7 @@ async def run_workflow(workflow_input: WorkflowInput):
             resolution_agent_result_temp = await Runner.run(
                 resolution_agent,
                 input=[*conversation_history],
-                run_config=RunConfig(
-                    trace_metadata={
-                        "__trace_source__": "agent-builder",
-                        "workflow_id": "wf_69ca443212748190a88bbb4492f3a1c70743dc1c484b9af8",
-                    }
-                ),
-            )
-
-            conversation_history.extend(
-                [item.to_input_item() for item in resolution_agent_result_temp.new_items]
+                run_config=default_run_config(),
             )
 
             resolution_agent_result = {
@@ -188,16 +178,7 @@ async def run_workflow(workflow_input: WorkflowInput):
         spam_agent_result_temp = await Runner.run(
             spam_agent,
             input=[*conversation_history],
-            run_config=RunConfig(
-                trace_metadata={
-                    "__trace_source__": "agent-builder",
-                    "workflow_id": "wf_69ca443212748190a88bbb4492f3a1c70743dc1c484b9af8",
-                }
-            ),
-        )
-
-        conversation_history.extend(
-            [item.to_input_item() for item in spam_agent_result_temp.new_items]
+            run_config=default_run_config(),
         )
 
         spam_agent_result = {
