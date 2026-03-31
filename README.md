@@ -23,6 +23,7 @@ This app takes a support message and:
 
 4. **Maintains a session queue**:
    - Keeps all triaged tickets in the current session
+   - Starts with a fresh ticket queue every new session (demo mode)
    - Ranks tickets from most important to least important
    - Lets you re-enter a previously triaged ticket into the input box
 

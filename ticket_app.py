@@ -1,8 +1,6 @@
 import asyncio
 import html
-import json
 from datetime import datetime, timezone
-from pathlib import Path
 from uuid import uuid4
 
 import streamlit as st
@@ -199,9 +197,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-TICKETS_DB_PATH = Path(__file__).parent / "tickets_store.json"
-CLOSED_TICKETS_DB_PATH = Path(__file__).parent / "closed_tickets_store.json"
-DELETED_TICKETS_DB_PATH = Path(__file__).parent / "deleted_tickets_store.json"
 URGENCY_RANK = {"high": 0, "medium": 1, "low": 2}
 STATUS_STAGES = ("new", "in_progress", "blocked", "completed")
 STATUS_SORT_ORDER = {"new": 0, "in_progress": 1, "blocked": 2, "completed": 3, "deleted": 4}
@@ -216,58 +211,32 @@ OPEN_STATUSES = ("new", "in_progress", "blocked")
 
 
 def load_tickets() -> list[dict]:
-    # Defensive read: tolerate first-run and malformed local JSON.
-    if not TICKETS_DB_PATH.exists():
-        return []
-    try:
-        data = json.loads(TICKETS_DB_PATH.read_text(encoding="utf-8"))
-        if isinstance(data, list):
-            return [entry for entry in data if isinstance(entry, dict)]
-    except (json.JSONDecodeError, OSError):
-        return []
+    # Demo mode: do not persist tickets between sessions.
     return []
 
 
 def save_tickets(tickets: list[dict]) -> None:
-    # Atomic write pattern to reduce risk of partial/corrupted ticket data.
-    temp_path = TICKETS_DB_PATH.with_suffix(".tmp")
-    temp_path.write_text(json.dumps(tickets, indent=2), encoding="utf-8")
-    temp_path.replace(TICKETS_DB_PATH)
+    # Demo mode: in-memory only, intentionally no-op.
+    return None
 
 
 def save_closed_tickets(tickets: list[dict]) -> None:
-    temp_path = CLOSED_TICKETS_DB_PATH.with_suffix(".tmp")
-    temp_path.write_text(json.dumps(tickets, indent=2), encoding="utf-8")
-    temp_path.replace(CLOSED_TICKETS_DB_PATH)
+    # Demo mode: in-memory only, intentionally no-op.
+    return None
 
 
 def load_closed_tickets() -> list[dict]:
-    if not CLOSED_TICKETS_DB_PATH.exists():
-        return []
-    try:
-        data = json.loads(CLOSED_TICKETS_DB_PATH.read_text(encoding="utf-8"))
-        if isinstance(data, list):
-            return [entry for entry in data if isinstance(entry, dict)]
-    except (json.JSONDecodeError, OSError):
-        return []
+    # Demo mode: do not persist tickets between sessions.
     return []
 
 
 def save_deleted_tickets(tickets: list[dict]) -> None:
-    temp_path = DELETED_TICKETS_DB_PATH.with_suffix(".tmp")
-    temp_path.write_text(json.dumps(tickets, indent=2), encoding="utf-8")
-    temp_path.replace(DELETED_TICKETS_DB_PATH)
+    # Demo mode: in-memory only, intentionally no-op.
+    return None
 
 
 def load_deleted_tickets() -> list[dict]:
-    if not DELETED_TICKETS_DB_PATH.exists():
-        return []
-    try:
-        data = json.loads(DELETED_TICKETS_DB_PATH.read_text(encoding="utf-8"))
-        if isinstance(data, list):
-            return [entry for entry in data if isinstance(entry, dict)]
-    except (json.JSONDecodeError, OSError):
-        return []
+    # Demo mode: do not persist tickets between sessions.
     return []
 
 
@@ -517,7 +486,7 @@ persist_ticket_state()
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="app-subtitle">Three-panel workspace: queue on the left, overview/resolution in the middle, and new ticket search on the right.</div>',
+    '<div class="app-subtitle">Three-panel workspace: queue on the left, overview/resolution in the middle, and new ticket search on the right. Demo mode is enabled, so tickets reset each session.</div>',
     unsafe_allow_html=True,
 )
 
