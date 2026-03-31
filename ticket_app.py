@@ -486,7 +486,7 @@ def render_result(result: dict, submitted_request: str = "") -> None:
                 unsafe_allow_html=True,
             )
             st.markdown(
-                f'<div class="response-box">{suggested_response}</div>',
+                f'<div class="response-box">{html.escape(suggested_response)}</div>',
                 unsafe_allow_html=True,
             )
 
@@ -658,7 +658,7 @@ if st.session_state.selected_ticket_id:
                 key=f"urgency_selected_{st.session_state.selected_ticket_id}",
             )
             if updated_urgency != selected_urgency:
-                (selected_ticket.get("ticket") or {})["urgency"] = updated_urgency
+                selected_ticket.setdefault("ticket", {})["urgency"] = updated_urgency
                 save_tickets(st.session_state.tickets)
                 st.rerun()
         with ctrl_cols[1]:
