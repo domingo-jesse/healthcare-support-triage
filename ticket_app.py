@@ -567,7 +567,6 @@ def render_result(
     default_status: str = "in_progress",
     key_prefix: str = "overview",
 ) -> tuple[str, str]:
-    st.markdown('<div class="card card-overview"><h3>📌 Overview</h3>', unsafe_allow_html=True)
     ticket = result.get("ticket") or {}
     st.markdown('<div class="overview-row-box"><div class="overview-row-grid">', unsafe_allow_html=True)
     col_classification, col_ticket_id, col_title, col_urgency, col_status = st.columns(5)
@@ -621,8 +620,6 @@ def render_result(
             unsafe_allow_html=True,
         )
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
     root_cause, next_steps, suggested_response = parse_resolution_text(result["resolution"])
 
     st.markdown('<div class="card card-resolution"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
@@ -656,18 +653,10 @@ def render_result(
 
 
 def render_empty_result_placeholder() -> None:
-    st.markdown('<div class="card card-overview"><h3>📌 Overview</h3>', unsafe_allow_html=True)
-    st.caption("No ticket selected yet.")
-    st.markdown(
-        '<div class="mini-note">Choose a ticket from the queue or run a new triage search from the middle panel.</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
-
     st.markdown('<div class="card card-resolution"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
     st.caption("Resolution output will appear here.")
     st.markdown(
-        '<div class="mini-note">Overview appears first and the resolution appears underneath it in this middle panel.</div>',
+        '<div class="mini-note">Choose a ticket from the queue or run a new triage search to populate this panel.</div>',
         unsafe_allow_html=True,
     )
     st.markdown("</div>", unsafe_allow_html=True)
@@ -781,9 +770,6 @@ with middle_col:
             selected_ticket = selected.get("ticket") or {}
             current_urgency = normalize_urgency(selected_ticket.get("urgency"))
             current_status = normalize_status(selected.get("status"))
-            st.info(
-                f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}"
-            )
             default_status = current_status if current_status in PROGRESS_OPTIONS else "in_progress"
             default_urgency = current_urgency if current_urgency in {"low", "medium", "high"} else "medium"
 
