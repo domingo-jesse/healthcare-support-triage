@@ -320,6 +320,8 @@ if "selected_ticket_id" not in st.session_state:
     st.session_state.selected_ticket_id = None
 if "message_input" not in st.session_state:
     st.session_state.message_input = ""
+if "selected_ticket_label" not in st.session_state:
+    st.session_state.selected_ticket_label = "None"
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
@@ -339,36 +341,36 @@ with st.sidebar:
     st.subheader("Queue")
 
     queue_tickets = rank_tickets(get_open_tickets(st.session_state.tickets))
-    if queue_tickets:
-        labels = [
-            f"{idx + 1}. [{(entry.get('ticket') or {}).get('urgency', 'medium').upper()}] "
-            f"{(entry.get('ticket') or {}).get('title', 'No title')}"
-            for idx, entry in enumerate(queue_tickets)
-        ]
-        selected_label = st.radio("Open saved ticket", labels, key="selected_ticket_label")
-        selected_index = labels.index(selected_label)
-        st.session_state.selected_ticket_id = queue_tickets[selected_index].get("saved_id")
-    else:
-        st.caption("No tickets in the queue.")
-
     completed_tickets = rank_tickets(get_completed_tickets(st.session_state.tickets))
-    st.divider()
-    st.subheader("Completed Tasks")
+
+    st.caption(f"Open: {len(queue_tickets)}  •  Completed: {len(completed_tickets)}")
+
+    ticket_lookup: dict[str, str] = {}
+    ticket_options = ["None"]
+
+    if queue_tickets:
+        ticket_options.append("— Open tickets —")
+        for idx, entry in enumerate(queue_tickets):
+            label = (
+                f"{idx + 1}. [{(entry.get('ticket') or {}).get('urgency', 'medium').upper()}] "
+                f"{(entry.get('ticket') or {}).get('title', 'No title')}"
+            )
+            ticket_options.append(label)
+            ticket_lookup[label] = entry.get("saved_id", "")
+
     if completed_tickets:
-        completed_labels = [
-            f"{idx + 1}. [{(entry.get('ticket') or {}).get('urgency', 'medium').upper()}] "
-            f"{(entry.get('ticket') or {}).get('title', 'No title')}"
-            for idx, entry in enumerate(completed_tickets)
-        ]
-        completed_selected_label = st.radio(
-            "Open completed ticket", completed_labels, key="selected_completed_ticket_label"
-        )
-        completed_selected_index = completed_labels.index(completed_selected_label)
-        st.session_state.selected_ticket_id = completed_tickets[completed_selected_index].get(
-            "saved_id"
-        )
-    else:
-        st.caption("No completed tasks yet.")
+        ticket_options.append("— Completed tickets —")
+        for idx, entry in enumerate(completed_tickets):
+            label = (
+                f"{idx + 1}. [{(entry.get('ticket') or {}).get('urgency', 'medium').upper()}] "
+                f"{(entry.get('ticket') or {}).get('title', 'No title')}"
+            )
+            ticket_options.append(label)
+            ticket_lookup[label] = entry.get("saved_id", "")
+
+    selected_label = st.selectbox("Open saved ticket", ticket_options, key="selected_ticket_label")
+    selected_saved_id = ticket_lookup.get(selected_label)
+    st.session_state.selected_ticket_id = selected_saved_id
 
 with st.form("triage_form", clear_on_submit=True):
     message = st.text_area(
@@ -433,6 +435,11 @@ elif st.session_state.selected_ticket_id:
                 st.rerun()
         else:
             st.caption("This ticket is completed.")
+            if st.button("Reopen ticket"):
+                selected["status"] = "open"
+                save_tickets(st.session_state.tickets)
+                st.success("Ticket reopened and moved back to the active queue.")
+                st.rerun()
         render_result(
             {
                 "classification": selected.get("classification", "ticket"),
