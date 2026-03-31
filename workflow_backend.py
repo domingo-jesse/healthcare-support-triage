@@ -1,15 +1,17 @@
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 from agents import Agent, ModelSettings, TResponseInputItem, Runner, RunConfig, trace
 
 
 class ClassifierSchema(BaseModel):
-    classification: str
+    classification: Literal["ticket", "spam"]
 
 
 class TicketAgentSchema(BaseModel):
-    ticketId: str
-    title: str
-    urgency: str
+    ticketId: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=3, max_length=120)
+    urgency: Literal["low", "medium", "high"]
 
 
 classifier = Agent(
@@ -26,7 +28,7 @@ classifier = Agent(
     model="gpt-4.1",
     output_type=ClassifierSchema,
     model_settings=ModelSettings(
-        temperature=1,
+        temperature=0,
         top_p=1,
         max_tokens=2048,
         store=True,
@@ -54,7 +56,7 @@ Return valid JSON only.
     model="gpt-4.1",
     output_type=TicketAgentSchema,
     model_settings=ModelSettings(
-        temperature=1,
+        temperature=0,
         top_p=1,
         max_tokens=2048,
         store=True,
@@ -68,7 +70,7 @@ spam_agent = Agent(
     ),
     model="gpt-4.1",
     model_settings=ModelSettings(
-        temperature=1,
+        temperature=0,
         top_p=1,
         max_tokens=2048,
         store=True,
@@ -89,7 +91,7 @@ Keep it concise and practical.
 """,
     model="gpt-4.1",
     model_settings=ModelSettings(
-        temperature=1,
+        temperature=0,
         top_p=1,
         max_tokens=2048,
         store=True,
