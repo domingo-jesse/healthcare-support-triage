@@ -143,6 +143,18 @@ st.markdown(
             color: var(--text-primary);
             border: 1px solid var(--border);
         }
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
+            height: auto;
+            min-height: 4.2rem;
+            text-align: left;
+            padding: 0.7rem 0.75rem;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+            box-shadow: 0 0 0 1px rgba(47, 125, 244, 0.15);
+        }
         div[data-testid="stFormSubmitButton"] > button {
             background: var(--accent-danger);
             border-color: var(--accent-danger);
@@ -601,26 +613,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown(
-    f"""
-    <div class="queue-table">
-      <div class="queue-title">Ticket Queue ({len(filtered_tickets)})</div>
-      <div class="queue-head">
-        <div>Select</div>
-        <div>Ticket ID</div>
-        <div>Type</div>
-        <div>Urgency</div>
-        <div>Status</div>
-        <div>Created</div>
-        <div>Open</div>
-      </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+st.sidebar.markdown("## 🎫 Ticket Queue")
+st.sidebar.caption(f"{len(filtered_tickets)} ticket(s)")
 
 if not filtered_tickets:
-    st.caption("No tickets match the current filters.")
+    st.sidebar.caption("No tickets match the current filters.")
 
 for ticket in filtered_tickets:
     ticket_id = ticket.get("saved_id", "")
@@ -628,74 +625,54 @@ for ticket in filtered_tickets:
     title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
     created_display = (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
     ticket_status = normalize_status(ticket.get("status"))
+    queue_label = (
+        f"#{ticket_id[-6:] if ticket_id else 'N/A'} · {title}\n"
+        f"{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}"
+    )
+    if st.sidebar.button(
+        queue_label,
+        key=f"queue_open_{ticket_id}",
+        use_container_width=True,
+        help="Open this ticket to view submitted request and suggested response.",
+    ):
+        st.session_state.selected_ticket_id = ticket_id
+        st.rerun()
 
-    row_cols = st.columns([0.8, 1, 2.8, 1.4, 1.7, 1.3, 1.1], gap="small")
-    with row_cols[0]:
-        is_closed = st.checkbox(
-            "Closed",
-            value=ticket_status == "completed",
-            key=f"closed_{ticket_id}",
-            label_visibility="collapsed",
-        )
-        if is_closed and ticket_status != "completed":
-            ticket["status"] = "completed"
-            save_tickets(st.session_state.tickets)
-            st.rerun()
-        if not is_closed and ticket_status == "completed":
-            ticket["status"] = "new"
-            save_tickets(st.session_state.tickets)
-            st.rerun()
-    with row_cols[1]:
-        if st.button(
-            f"#{ticket_id[-6:] if ticket_id else 'N/A'}",
-            key=f"open_id_{ticket_id}",
-            use_container_width=True,
-        ):
-            st.session_state.selected_ticket_id = ticket_id
-            st.rerun()
-    with row_cols[2]:
-        if st.button(
-            title,
-            key=f"open_title_{ticket_id}",
-            use_container_width=True,
-            help="Open this ticket to view submitted request and suggested response.",
-        ):
-            st.session_state.selected_ticket_id = ticket_id
-            st.rerun()
-    with row_cols[3]:
-        urgency_options = ["high", "medium", "low"]
-        selected_urgency = st.selectbox(
-            "Urgency",
-            options=urgency_options,
-            index=urgency_options.index(urgency),
-            format_func=lambda value: {"high": "HIGH", "medium": "MEDUIM", "low": "LOW"}[value],
-            key=f"urgency_{ticket_id}",
-            label_visibility="collapsed",
-        )
-        st.markdown(urgency_badge_html(selected_urgency), unsafe_allow_html=True)
-        if selected_urgency != urgency:
-            (ticket.get("ticket") or {})["urgency"] = selected_urgency
-            save_tickets(st.session_state.tickets)
-            st.rerun()
-    with row_cols[4]:
-        selected_status = st.selectbox(
-            "Status",
-            options=list(STATUS_STAGES),
-            format_func=lambda s: STATUS_LABELS[s],
-            index=STATUS_STAGES.index(ticket_status),
-            key=f"status_{ticket_id}",
-            label_visibility="collapsed",
-        )
-        if selected_status != ticket_status:
-            ticket["status"] = selected_status
-            save_tickets(st.session_state.tickets)
-            st.rerun()
-    with row_cols[5]:
-        st.markdown(f'<div class="ticket-date">{html.escape(created_display)}</div>', unsafe_allow_html=True)
-    with row_cols[6]:
-        if st.button("Open ticket", key=f"open_{ticket_id}", use_container_width=True):
-            st.session_state.selected_ticket_id = ticket_id
-            st.rerun()
+if st.session_state.selected_ticket_id:
+    selected_ticket = next(
+        (entry for entry in st.session_state.tickets if entry.get("saved_id") == st.session_state.selected_ticket_id),
+        None,
+    )
+    if selected_ticket:
+        selected_urgency = normalize_urgency((selected_ticket.get("ticket") or {}).get("urgency"))
+        selected_status = normalize_status(selected_ticket.get("status"))
+        st.markdown("### Selected ticket controls")
+        ctrl_cols = st.columns([1, 1], gap="medium")
+        with ctrl_cols[0]:
+            urgency_options = ["high", "medium", "low"]
+            updated_urgency = st.selectbox(
+                "Urgency",
+                options=urgency_options,
+                index=urgency_options.index(selected_urgency),
+                format_func=lambda value: {"high": "HIGH", "medium": "MEDIUM", "low": "LOW"}[value],
+                key=f"urgency_selected_{st.session_state.selected_ticket_id}",
+            )
+            if updated_urgency != selected_urgency:
+                (selected_ticket.get("ticket") or {})["urgency"] = updated_urgency
+                save_tickets(st.session_state.tickets)
+                st.rerun()
+        with ctrl_cols[1]:
+            updated_status = st.selectbox(
+                "Status",
+                options=list(STATUS_STAGES),
+                format_func=lambda s: STATUS_LABELS[s],
+                index=STATUS_STAGES.index(selected_status),
+                key=f"status_selected_{st.session_state.selected_ticket_id}",
+            )
+            if updated_status != selected_status:
+                selected_ticket["status"] = updated_status
+                save_tickets(st.session_state.tickets)
+                st.rerun()
 
 if st.session_state.selected_ticket_id:
     selected = next(
