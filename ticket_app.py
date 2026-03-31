@@ -47,6 +47,10 @@ st.markdown(
             padding-left: 1.25rem;
             padding-right: 1.25rem;
         }
+        .centered-stack {
+            max-width: 900px;
+            margin: 0 auto;
+        }
         .app-title {
             font-size: 2rem;
             font-weight: 800;
@@ -437,9 +441,8 @@ def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
 
 
 def render_result(result: dict, submitted_request: str = "") -> None:
-    left, right = st.columns([1, 1.2], gap="large")
-
-    with left:
+    with st.container():
+        st.markdown('<div class="centered-stack">', unsafe_allow_html=True)
         st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
         if submitted_request:
             st.markdown('<div class="section-label">Submitted Request</div>', unsafe_allow_html=True)
@@ -472,8 +475,9 @@ def render_result(result: dict, submitted_request: str = "") -> None:
             st.markdown(urgency_badge_html(ticket["urgency"]), unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
-
-    with right:
+        st.markdown("</div>", unsafe_allow_html=True)
+    with st.container():
+        st.markdown('<div class="centered-stack">', unsafe_allow_html=True)
         root_cause, next_steps, suggested_response = parse_resolution_text(result["resolution"])
 
         st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
@@ -502,12 +506,12 @@ def render_result(result: dict, submitted_request: str = "") -> None:
             )
 
         st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_empty_result_placeholder() -> None:
-    left, right = st.columns([1, 1.2], gap="large")
-
-    with left:
+    with st.container():
+        st.markdown('<div class="centered-stack">', unsafe_allow_html=True)
         st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
         st.caption("No ticket selected yet.")
         st.markdown(
@@ -515,14 +519,16 @@ def render_empty_result_placeholder() -> None:
             unsafe_allow_html=True,
         )
         st.markdown("</div>", unsafe_allow_html=True)
-
-    with right:
+        st.markdown("</div>", unsafe_allow_html=True)
+    with st.container():
+        st.markdown('<div class="centered-stack">', unsafe_allow_html=True)
         st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
         st.caption("Resolution output will appear here.")
         st.markdown(
             '<div class="mini-note">Once a ticket is analyzed, likely root cause, recommended steps, and suggested response will display in this panel.</div>',
             unsafe_allow_html=True,
         )
+        st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -610,6 +616,7 @@ if st.session_state.selected_ticket_id:
 else:
     render_empty_result_placeholder()
 
+st.markdown('<div class="centered-stack">', unsafe_allow_html=True)
 st.markdown("### 🔎 New ticket search")
 with st.form("triage_form", clear_on_submit=True):
     message = st.text_area(
@@ -619,6 +626,7 @@ with st.form("triage_form", clear_on_submit=True):
         placeholder="Paste a support ticket here...",
     )
     submitted = st.form_submit_button("Run triage", type="primary", use_container_width=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 if submitted:
     if not message.strip():
