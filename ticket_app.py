@@ -134,12 +134,12 @@ st.markdown(
             color: var(--text-primary);
         }
         .overview-row-box {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: var(--bg-secondary);
-            padding: 0.6rem;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            padding: 0;
             margin-top: 0.4rem;
-            box-shadow: var(--shadow);
+            box-shadow: none;
         }
         .overview-row-grid {
             display: grid;
