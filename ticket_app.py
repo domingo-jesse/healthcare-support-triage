@@ -298,7 +298,7 @@ st.markdown(
             margin-bottom: 0.45rem;
         }
         .queue-item-row {
-            margin: 0.35rem 0;
+            margin: 0.18rem 0;
         }
         .queue-scroll-wrap {
             max-height: 72vh;
@@ -337,23 +337,29 @@ st.markdown(
         .queue-ticket-button div[data-testid="stButton"] > button {
             border-radius: 10px;
             border: 1px solid var(--border);
-            min-height: 58px;
-            padding: 0.45rem 0.55rem;
+            min-height: 50px;
+            padding: 0.4rem 0.55rem;
             text-align: left;
             font-size: 0.8rem;
-            background: rgba(15, 23, 42, 0.05);
+            background: rgba(15, 23, 42, 0.06);
         }
         .queue-ticket-button.high div[data-testid="stButton"] > button {
-            background: rgba(239, 68, 68, 0.18);
+            background: rgba(239, 68, 68, 0.36);
             border-color: rgba(239, 68, 68, 0.35);
         }
         .queue-ticket-button.medium div[data-testid="stButton"] > button {
-            background: rgba(251, 191, 36, 0.18);
+            background: rgba(251, 191, 36, 0.36);
             border-color: rgba(245, 158, 11, 0.35);
         }
         .queue-ticket-button.low div[data-testid="stButton"] > button {
-            background: rgba(59, 130, 246, 0.16);
+            background: rgba(59, 130, 246, 0.3);
             border-color: rgba(59, 130, 246, 0.33);
+        }
+        .queue-archive-btn div[data-testid="stButton"] > button {
+            min-height: 50px;
+            border-radius: 10px;
+            padding: 0.2rem;
+            font-size: 0.95rem;
         }
         .queue-ticket-button div[data-testid="stButton"] > button:hover {
             filter: brightness(0.98);
@@ -436,8 +442,10 @@ st.markdown(
 
 TICKETS_DB_PATH = Path(__file__).parent / "tickets_store.json"
 CLOSED_TICKETS_DB_PATH = Path(__file__).parent / "closed_tickets_store.json"
+DELETED_TICKETS_DB_PATH = Path(__file__).parent / "deleted_tickets_store.json"
 URGENCY_RANK = {"high": 0, "medium": 1, "low": 2}
 STATUS_STAGES = ("new", "in_progress", "blocked", "completed")
+STATUS_SORT_ORDER = {"new": 0, "in_progress": 1, "blocked": 2, "completed": 3, "deleted": 4}
 STATUS_LABELS = {
     "new": "New",
     "in_progress": "In Progress",
@@ -484,12 +492,30 @@ def load_closed_tickets() -> list[dict]:
     return []
 
 
+def save_deleted_tickets(tickets: list[dict]) -> None:
+    temp_path = DELETED_TICKETS_DB_PATH.with_suffix(".tmp")
+    temp_path.write_text(json.dumps(tickets, indent=2), encoding="utf-8")
+    temp_path.replace(DELETED_TICKETS_DB_PATH)
+
+
+def load_deleted_tickets() -> list[dict]:
+    if not DELETED_TICKETS_DB_PATH.exists():
+        return []
+    try:
+        data = json.loads(DELETED_TICKETS_DB_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return [entry for entry in data if isinstance(entry, dict)]
+    except (json.JSONDecodeError, OSError):
+        return []
+    return []
+
+
 def rank_tickets(tickets: list[dict]) -> list[dict]:
     return sorted(
         tickets,
         key=lambda t: (
             URGENCY_RANK.get((t.get("ticket") or {}).get("urgency", "medium").lower(), 1),
-            STATUS_STAGES.index(normalize_status(t.get("status"))),
+            STATUS_SORT_ORDER.get(normalize_status(t.get("status")), 5),
             t.get("created_at", ""),
         ),
         reverse=False,
@@ -509,6 +535,8 @@ def normalize_status(status: str | None) -> str:
     normalized = (status or "").strip().lower()
     if normalized == "open":
         return "new"
+    if normalized in {"deleted", "spam"}:
+        return "deleted"
     if normalized in {"closed", "done"}:
         return "completed"
     return normalized if normalized in STATUS_STAGES else "new"
@@ -684,6 +712,7 @@ def render_empty_result_placeholder() -> None:
 def persist_ticket_state() -> None:
     save_tickets(st.session_state.open_tickets)
     save_closed_tickets(st.session_state.closed_tickets)
+    save_deleted_tickets(st.session_state.deleted_tickets)
 
 
 if "open_tickets" not in st.session_state:
@@ -694,6 +723,10 @@ if "closed_tickets" not in st.session_state:
     st.session_state.closed_tickets = load_closed_tickets()
     for entry in st.session_state.closed_tickets:
         entry["status"] = "completed"
+if "deleted_tickets" not in st.session_state:
+    st.session_state.deleted_tickets = load_deleted_tickets()
+    for entry in st.session_state.deleted_tickets:
+        entry["status"] = "deleted"
 if "selected_ticket_id" not in st.session_state:
     st.session_state.selected_ticket_id = None
 if "message_input" not in st.session_state:
@@ -702,8 +735,12 @@ if "message_input" not in st.session_state:
 # Migration support: move completed tickets from open storage into archive storage.
 migrated_open_tickets = []
 migrated_closed_tickets = list(st.session_state.closed_tickets)
+migrated_deleted_tickets = list(st.session_state.deleted_tickets)
 for ticket in st.session_state.open_tickets:
-    if normalize_status(ticket.get("status")) == "completed":
+    if (ticket.get("classification") or "").strip().lower() == "spam":
+        ticket["status"] = "deleted"
+        migrated_deleted_tickets.append(ticket)
+    elif normalize_status(ticket.get("status")) == "completed":
         ticket["status"] = "completed"
         migrated_closed_tickets.append(ticket)
     else:
@@ -711,6 +748,7 @@ for ticket in st.session_state.open_tickets:
         migrated_open_tickets.append(ticket)
 st.session_state.open_tickets = migrated_open_tickets
 st.session_state.closed_tickets = migrated_closed_tickets
+st.session_state.deleted_tickets = migrated_deleted_tickets
 persist_ticket_state()
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
@@ -721,22 +759,40 @@ st.markdown(
 
 open_tickets = rank_tickets(list(st.session_state.open_tickets))
 closed_tickets = rank_tickets(list(st.session_state.closed_tickets))
-all_tickets = open_tickets + closed_tickets
+deleted_tickets = rank_tickets(list(st.session_state.deleted_tickets))
+all_tickets = open_tickets + closed_tickets + deleted_tickets
 
 left_col, middle_col, right_col = st.columns([1.2, 1.25, 1.55], gap="large")
 
 with left_col:
     st.markdown('<div class="three-col-header">🎫 Ticket queues</div>', unsafe_allow_html=True)
-    st.caption(f"{len(open_tickets)} open · {len(closed_tickets)} archived")
+    blocked_tickets = [t for t in open_tickets if normalize_status(t.get("status")) == "blocked"]
+    active_open_tickets = [t for t in open_tickets if normalize_status(t.get("status")) in {"new", "in_progress"}]
+    st.caption(
+        f"{len(active_open_tickets)} open · {len(blocked_tickets)} blocked · {len(closed_tickets)} archived · {len(deleted_tickets)} deleted/spam"
+    )
 
     urgency_icons = {"high": "🟥", "medium": "🟨", "low": "🟦"}
     urgency_labels = {"high": "High", "medium": "Medium", "low": "Low"}
-    grouped_open_tickets = {
-        level: [t for t in open_tickets if normalize_urgency((t.get("ticket") or {}).get("urgency")) == level]
-        for level in ("high", "medium", "low")
-    }
+    def group_by_urgency(tickets: list[dict]) -> dict[str, list[dict]]:
+        return {
+            level: [t for t in tickets if normalize_urgency((t.get("ticket") or {}).get("urgency")) == level]
+            for level in ("high", "medium", "low")
+        }
 
-    def render_ticket_buttons(section_key: str, tickets: list[dict]) -> None:
+    grouped_open_tickets = group_by_urgency(active_open_tickets)
+    grouped_blocked_tickets = group_by_urgency(blocked_tickets)
+
+    def archive_ticket(ticket: dict) -> None:
+        ticket_id = ticket.get("saved_id")
+        ticket["status"] = "completed"
+        st.session_state.open_tickets = [t for t in st.session_state.open_tickets if t.get("saved_id") != ticket_id]
+        st.session_state.deleted_tickets = [t for t in st.session_state.deleted_tickets if t.get("saved_id") != ticket_id]
+        if not any(t.get("saved_id") == ticket_id for t in st.session_state.closed_tickets):
+            st.session_state.closed_tickets.append(ticket)
+        persist_ticket_state()
+
+    def render_ticket_buttons(section_key: str, tickets: list[dict], enable_archive: bool = True) -> None:
         if not tickets:
             st.caption("No tickets in this section.")
             return
@@ -744,29 +800,83 @@ with left_col:
             ticket_id = ticket.get("saved_id", "")
             title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
             urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
-            queue_title = f"{urgency_icons[urgency]} [{urgency_labels[urgency]}] {title}"
-            st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
-            if st.button(
-                queue_title,
-                key=f"queue_{section_key}_{ticket_id}",
-                use_container_width=True,
-                help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-            ):
-                st.session_state.selected_ticket_id = ticket_id
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+            queue_title = f"{urgency_icons[urgency]} {title}"
+            row_col, archive_col = st.columns([8.8, 1.2], gap="small")
+            with row_col:
+                st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
+                if st.button(
+                    queue_title,
+                    key=f"queue_{section_key}_{ticket_id}",
+                    use_container_width=True,
+                    help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
+                ):
+                    st.session_state.selected_ticket_id = ticket_id
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+            with archive_col:
+                st.markdown('<div class="queue-item-row queue-archive-btn">', unsafe_allow_html=True)
+                if enable_archive and st.button(
+                    "🗑️",
+                    key=f"archive_{section_key}_{ticket_id}",
+                    use_container_width=True,
+                    help="Archive this ticket",
+                ):
+                    archive_ticket(ticket)
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
-    open_tab, archive_tab = st.tabs(["🟢 Open Queue", "📦 Archive"])
+    open_tab, blocked_tab, archive_tab, deleted_tab = st.tabs(
+        ["🟢 Open Queue", "⛔ Blocked Queue", "📦 Archived Queue", "🗑️ Deleted / Spam"]
+    )
     with open_tab:
         with st.container(height=640, border=False):
             st.markdown("#### Ranked by urgency")
             for urgency_level in ("high", "medium", "low"):
                 st.markdown(f"##### {urgency_labels[urgency_level]} ({len(grouped_open_tickets[urgency_level])})")
                 render_ticket_buttons(f"open_{urgency_level}", grouped_open_tickets[urgency_level])
+    with blocked_tab:
+        with st.container(height=640, border=False):
+            st.markdown("#### Blocked tickets")
+            for urgency_level in ("high", "medium", "low"):
+                st.markdown(f"##### {urgency_labels[urgency_level]} ({len(grouped_blocked_tickets[urgency_level])})")
+                render_ticket_buttons(f"blocked_{urgency_level}", grouped_blocked_tickets[urgency_level])
     with archive_tab:
         with st.container(height=640, border=False):
-            st.markdown("#### Closed tickets")
-            render_ticket_buttons("archive", closed_tickets)
+            st.markdown("#### Archived tickets")
+            render_ticket_buttons("archive", closed_tickets, enable_archive=False)
+    with deleted_tab:
+        with st.container(height=640, border=False):
+            st.markdown("#### Deleted and spam tickets")
+            if not deleted_tickets:
+                st.caption("No deleted/spam tickets.")
+            for ticket in deleted_tickets:
+                ticket_id = ticket.get("saved_id", "")
+                title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
+                urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
+                queue_title = f"{urgency_icons[urgency]} {title}"
+                row_col, restore_col = st.columns([8.8, 1.2], gap="small")
+                with row_col:
+                    st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
+                    if st.button(
+                        queue_title,
+                        key=f"queue_deleted_{ticket_id}",
+                        use_container_width=True,
+                        help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
+                    ):
+                        st.session_state.selected_ticket_id = ticket_id
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+                with restore_col:
+                    st.markdown('<div class="queue-item-row queue-archive-btn">', unsafe_allow_html=True)
+                    if st.button(
+                        "📦",
+                        key=f"restore_deleted_{ticket_id}",
+                        use_container_width=True,
+                        help="Archive this deleted/spam ticket",
+                    ):
+                        archive_ticket(ticket)
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
@@ -813,10 +923,20 @@ with middle_col:
                             for t in st.session_state.closed_tickets
                         ):
                             st.session_state.closed_tickets.append(selected)
+                        st.session_state.deleted_tickets = [
+                            t
+                            for t in st.session_state.deleted_tickets
+                            if t.get("saved_id") != selected.get("saved_id")
+                        ]
                     else:
                         st.session_state.closed_tickets = [
                             t
                             for t in st.session_state.closed_tickets
+                            if t.get("saved_id") != selected.get("saved_id")
+                        ]
+                        st.session_state.deleted_tickets = [
+                            t
+                            for t in st.session_state.deleted_tickets
                             if t.get("saved_id") != selected.get("saved_id")
                         ]
                         if not any(
@@ -865,20 +985,25 @@ if submitted:
 
             normalized_ticket_id = ensure_unique_ticket_id(
                 ticket_data.get("ticketId"),
-                st.session_state.open_tickets + st.session_state.closed_tickets,
+                st.session_state.open_tickets
+                + st.session_state.closed_tickets
+                + st.session_state.deleted_tickets,
             )
             ticket_data["ticketId"] = normalized_ticket_id
 
             saved_entry = {
                 "saved_id": normalized_ticket_id,
                 "created_at": datetime.now(timezone.utc).isoformat(),
-                "status": "new",
+                "status": "deleted" if result["classification"] == "spam" else "new",
                 "message": message.strip(),
                 "classification": result["classification"],
                 "ticket": ticket_data,
                 "resolution": result["resolution"],
             }
-            st.session_state.open_tickets.append(saved_entry)
+            if result["classification"] == "spam":
+                st.session_state.deleted_tickets.append(saved_entry)
+            else:
+                st.session_state.open_tickets.append(saved_entry)
             persist_ticket_state()
             st.session_state.selected_ticket_id = saved_entry["saved_id"]
 
