@@ -49,23 +49,90 @@ st.markdown(
             font-weight: 700;
             margin-bottom: 0.75rem;
         }
+        .hero-shell {
+            position: relative;
+            text-align: center;
+            margin-bottom: 1.2rem;
+            padding: 1.2rem 1.1rem 1rem;
+            border-radius: 18px;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: linear-gradient(125deg, rgba(255,255,255,0.94), rgba(239,246,255,0.8));
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            overflow: hidden;
+            isolation: isolate;
+        }
+        .hero-shell::before {
+            content: "";
+            position: absolute;
+            inset: -50% auto auto -30%;
+            width: 300px;
+            height: 300px;
+            border-radius: 999px;
+            background: radial-gradient(circle, rgba(59,130,246,0.2), rgba(59,130,246,0));
+            animation: floatGlow 8s ease-in-out infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .hero-shell::after {
+            content: "";
+            position: absolute;
+            inset: auto -20% -70% auto;
+            width: 260px;
+            height: 260px;
+            border-radius: 999px;
+            background: radial-gradient(circle, rgba(129,140,248,0.22), rgba(129,140,248,0));
+            animation: floatGlow 10s ease-in-out infinite reverse;
+            pointer-events: none;
+            z-index: -1;
+        }
         .app-title {
-            font-size: 1.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            font-size: clamp(1.7rem, 3vw, 2.2rem);
             font-weight: 800;
             margin-bottom: 0.25rem;
-            color: var(--text-primary);
+            color: #0f172a;
+            letter-spacing: -0.02em;
         }
         .app-subtitle {
-            color: var(--text-muted);
-            margin-bottom: 1.1rem;
+            color: #475569;
+            margin: 0 auto 0.9rem;
+            max-width: 860px;
+            font-size: 0.97rem;
         }
+        .hero-metrics {
+            display: inline-flex;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .hero-pill {
+            background: rgba(255,255,255,0.92);
+            border: 1px solid rgba(148,163,184,0.25);
+            color: #1e293b;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.28rem 0.7rem;
+            animation: pulsePill 3s ease-in-out infinite;
+        }
+        .hero-pill:nth-child(2) { animation-delay: 0.4s; }
+        .hero-pill:nth-child(3) { animation-delay: 0.8s; }
         .panel-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 14px;
             padding: 1rem;
             box-shadow: var(--shadow);
             margin-bottom: 1rem;
+            backdrop-filter: blur(4px);
+            transition: transform 160ms ease, box-shadow 160ms ease;
+        }
+        .panel-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.09);
         }
         .section-title {
             font-size: 1rem;
@@ -185,6 +252,37 @@ st.markdown(
         }
         .queue-move-control {
             margin-top: 0.5rem;
+        }
+        @keyframes floatGlow {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(10px, -12px) scale(1.06); }
+        }
+        @keyframes pulsePill {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.05); }
+            50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.01); }
+        }
+        .three-col-header {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding-bottom: 0.22rem;
+        }
+        .three-col-header::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -2px;
+            height: 2px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(59,130,246,0.85), rgba(59,130,246,0.1));
+            transform-origin: left;
+            animation: headerSweep 2.8s ease-in-out infinite;
+        }
+        @keyframes headerSweep {
+            0%, 100% { transform: scaleX(0.35); opacity: 0.65; }
+            50% { transform: scaleX(1); opacity: 1; }
         }
         @media (max-width: 1100px) {
             .block-container {
@@ -492,9 +590,18 @@ st.session_state.closed_tickets = migrated_closed_tickets
 st.session_state.deleted_tickets = migrated_deleted_tickets
 persist_ticket_state()
 
-st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="app-subtitle">Three-panel workspace: queue on the left, overview/resolution in the middle, and new ticket search on the right. Demo mode is enabled, so tickets reset each session.</div>',
+    """
+    <div class="hero-shell">
+        <div class="app-title"><span>🩺</span><span>Healthcare Support Triage</span></div>
+        <div class="app-subtitle">Three-panel workspace: queue on the left, overview/resolution in the middle, and new ticket search on the right. Demo mode is enabled, so tickets reset each session.</div>
+        <div class="hero-metrics">
+            <span class="hero-pill">Fast triage workflow</span>
+            <span class="hero-pill">Priority-first queueing</span>
+            <span class="hero-pill">Clean decision context</span>
+        </div>
+    </div>
+    """,
     unsafe_allow_html=True,
 )
 
