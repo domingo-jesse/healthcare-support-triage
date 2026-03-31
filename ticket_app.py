@@ -749,25 +749,17 @@ with left_col:
                 st.session_state.selected_ticket_id = ticket_id
                 st.rerun()
 
-    open_tab, blocked_tab, archive_tab, deleted_tab = st.tabs(
-        ["🟢 Open Queue", "⛔ Blocked Queue", "📦 Archived Queue", "🗑️ Deleted / Spam"]
-    )
-    with open_tab:
-        with st.container(height=640, border=False):
-            st.markdown("#### Ranked by urgency")
-            render_ticket_buttons("open", active_open_tickets)
-    with blocked_tab:
-        with st.container(height=640, border=False):
-            st.markdown("#### Blocked tickets")
-            render_ticket_buttons("blocked", blocked_tickets)
-    with archive_tab:
-        with st.container(height=640, border=False):
-            st.markdown("#### Archived tickets")
-            render_ticket_buttons("archive", closed_tickets)
-    with deleted_tab:
-        with st.container(height=640, border=False):
-            st.markdown("#### Deleted and spam tickets")
-            render_ticket_buttons("deleted", deleted_tickets)
+    queue_sections = [
+        ("🟢 Open Queue", "Ranked by urgency", "open", active_open_tickets),
+        ("⛔ Blocked Queue", "Tickets needing unblocking", "blocked", blocked_tickets),
+        ("📦 Archived Queue", "Completed tickets", "archive", closed_tickets),
+        ("🗑️ Deleted / Spam", "Deleted and spam tickets", "deleted", deleted_tickets),
+    ]
+    for queue_name, queue_caption, queue_key, queue_tickets in queue_sections:
+        st.markdown(f"#### {queue_name}")
+        st.caption(queue_caption)
+        with st.container(height=180, border=False):
+            render_ticket_buttons(queue_key, queue_tickets)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
