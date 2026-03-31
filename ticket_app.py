@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 import streamlit as st
 from workflow_backend import run_workflow, WorkflowInput
 
@@ -123,6 +124,13 @@ Mark""",
 }
 
 
+URGENCY_SCORES = {
+    "high": 100,
+    "medium": 60,
+    "low": 30,
+}
+
+
 def urgency_badge_html(urgency: str) -> str:
     urgency = (urgency or "").lower()
     css_class = {
@@ -165,6 +173,58 @@ def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
     return root_cause.strip(), next_steps.strip(), suggested_response.strip()
 
 
+def get_ticket_priority_score(urgency: str, repeat_count: int) -> int:
+    urgency_score = URGENCY_SCORES.get((urgency or "").lower(), 40)
+    repeat_bonus = max(repeat_count - 1, 0) * 5
+    return urgency_score + repeat_bonus
+
+
+def upsert_ticket_queue(message_text: str, ticket: dict, resolution: str) -> dict:
+    queue = st.session_state["ticket_queue"]
+    normalized_message = message_text.strip().lower()
+
+    existing_item = next(
+        (item for item in queue if item["normalized_message"] == normalized_message),
+        None,
+    )
+
+    if existing_item:
+        existing_item["run_count"] += 1
+        existing_item["ticket_id"] = ticket["ticketId"]
+        existing_item["title"] = ticket["title"]
+        existing_item["urgency"] = ticket["urgency"]
+        existing_item["resolution"] = resolution
+        existing_item["last_message"] = message_text.strip()
+        existing_item["last_updated"] = datetime.now(timezone.utc).isoformat()
+        existing_item["priority_score"] = get_ticket_priority_score(
+            existing_item["urgency"], existing_item["run_count"]
+        )
+        return existing_item
+
+    new_item = {
+        "normalized_message": normalized_message,
+        "last_message": message_text.strip(),
+        "ticket_id": ticket["ticketId"],
+        "title": ticket["title"],
+        "urgency": ticket["urgency"],
+        "resolution": resolution,
+        "run_count": 1,
+        "last_updated": datetime.now(timezone.utc).isoformat(),
+    }
+    new_item["priority_score"] = get_ticket_priority_score(
+        new_item["urgency"], new_item["run_count"]
+    )
+    queue.append(new_item)
+    return new_item
+
+
+if "ticket_queue" not in st.session_state:
+    st.session_state["ticket_queue"] = []
+
+if "message_input" not in st.session_state:
+    st.session_state["message_input"] = ""
+
+
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="app-subtitle">AI-powered triage for support messages, ticket creation, and suggested customer responses.</div>',
@@ -175,12 +235,38 @@ with st.sidebar:
     st.header("Examples")
     example_choice = st.selectbox("Load a sample", ["Custom"] + list(EXAMPLES.keys()))
     st.markdown("Use one of these sample issues or paste your own message.")
+    if st.button("Load sample", use_container_width=True):
+        st.session_state["message_input"] = (
+            EXAMPLES.get(example_choice, "") if example_choice != "Custom" else ""
+        )
 
-default_message = EXAMPLES.get(example_choice, "") if example_choice != "Custom" else ""
+    queue = sorted(
+        st.session_state["ticket_queue"],
+        key=lambda item: (item["priority_score"], item["last_updated"]),
+        reverse=True,
+    )
+    st.divider()
+    st.subheader("Session Ticket Queue")
+    st.caption("Ranked from most important to least important.")
+
+    if queue:
+        queue_options = [
+            f'{idx + 1}. [{item["priority_score"]}] {item["title"]} ({item["urgency"].upper()})'
+            for idx, item in enumerate(queue)
+        ]
+        selected_queue_index = st.selectbox(
+            "Select a queued ticket to re-enter",
+            options=list(range(len(queue_options))),
+            format_func=lambda index: queue_options[index],
+        )
+        if st.button("Re-enter selected ticket", use_container_width=True):
+            st.session_state["message_input"] = queue[selected_queue_index]["last_message"]
+    else:
+        st.info("No tickets in this session yet. Run triage to build the queue.")
 
 message = st.text_area(
     "Incoming support message",
-    value=default_message,
+    key="message_input",
     height=220,
     placeholder="Paste a support ticket here...",
 )
@@ -209,6 +295,11 @@ if st.button("Run triage", type="primary", use_container_width=True):
 
                 if result["ticket"]:
                     ticket = result["ticket"]
+                    queued_ticket = upsert_ticket_queue(
+                        message_text=message.strip(),
+                        ticket=ticket,
+                        resolution=result["resolution"],
+                    )
 
                     st.markdown('<div class="section-label">Ticket ID</div>', unsafe_allow_html=True)
                     st.markdown(
@@ -224,6 +315,12 @@ if st.button("Run triage", type="primary", use_container_width=True):
 
                     st.markdown('<div class="section-label">Urgency</div>', unsafe_allow_html=True)
                     st.markdown(urgency_badge_html(ticket["urgency"]), unsafe_allow_html=True)
+
+                    st.markdown('<div class="section-label">Severity score</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div class="metric-value">{queued_ticket["priority_score"]}</div>',
+                        unsafe_allow_html=True,
+                    )
 
                 st.markdown("</div>", unsafe_allow_html=True)
 

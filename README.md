@@ -14,11 +14,17 @@ This app takes a support message and:
    - ID
    - Title
    - Urgency
+   - Severity score for ranking
 
 3. **Generates resolution guidance**:
    - Root cause analysis
    - Recommended next steps
    - Suggested customer response
+
+4. **Maintains a session queue**:
+   - Keeps all triaged tickets in the current session
+   - Ranks tickets from most important to least important
+   - Lets you re-enter a previously triaged ticket into the input box
 
 ## 🧠 Tech Stack
 
