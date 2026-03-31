@@ -156,7 +156,8 @@ st.markdown(
             margin-bottom: 0.45rem;
         }
         .queue-item-row {
-            margin: 0.05rem 0;
+            margin: 0.15rem 0;
+            border-radius: 10px;
         }
         .queue-ticket-button div[data-testid="stButton"] > button {
             border-radius: 10px;
@@ -168,8 +169,9 @@ st.markdown(
             font-weight: 600;
             box-shadow: none;
             transition: all 120ms ease-in-out;
-            background: var(--ticket-bg, #ffffff);
-            color: var(--ticket-text, var(--text-primary));
+            background: var(--ticket-bg, #ffffff) !important;
+            color: var(--ticket-text, var(--text-primary)) !important;
+            white-space: normal;
         }
         .queue-ticket-button div[data-testid="stButton"] > button:hover {
             transform: translateY(-1px);
@@ -304,6 +306,14 @@ def ensure_unique_ticket_id(ticket_id: str | None, existing_tickets: list[dict])
     return candidate
 
 
+def clean_ticket_title(title: str | None) -> str:
+    cleaned = (title or "").strip()
+    for marker in ("🟥", "🟧", "🟨", "🟩", "🟦", "🟪", "🟫", "⬛", "⬜", "◼", "◻", "■", "□"):
+        if cleaned.startswith(marker):
+            cleaned = cleaned[len(marker):].strip(" :-")
+    return cleaned or "Untitled ticket"
+
+
 def urgency_badge_html(urgency: str) -> str:
     urgency = normalize_urgency(urgency)
     css_class = {"low": "badge-low", "medium": "badge-medium", "high": "badge-high"}.get(
@@ -371,7 +381,7 @@ def render_result(
         st.markdown('<div class="section-title">Ticket Info</div>', unsafe_allow_html=True)
         edited_title = st.text_input(
             "Title",
-            value=ticket.get("title", "Untitled ticket"),
+            value=clean_ticket_title(ticket.get("title")),
             key=f"{key_prefix}_title_{ticket.get('ticketId', 'unknown')}",
         )
         col_classification, col_urgency, col_status = st.columns(3, gap="small")
@@ -586,7 +596,7 @@ with left_col:
         for idx, ticket in enumerate(tickets):
             ticket_id = ticket.get("saved_id", "")
             widget_suffix = f"{ticket_id or 'noid'}_{idx}"
-            title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
+            title = clean_ticket_title((ticket.get("ticket") or {}).get("title"))
             urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
             is_selected = st.session_state.selected_ticket_id == ticket_id
             selected_class = "selected" if is_selected else ""
@@ -664,12 +674,12 @@ with middle_col:
                     key_prefix=f"selected_{selected.get('saved_id')}",
                 )
 
-                normalized_title = edited_title or "Untitled ticket"
+                normalized_title = clean_ticket_title(edited_title)
                 if (
                     urgency_choice != current_urgency
                     or progress_choice != current_status
                     or classification_choice != default_classification
-                    or normalized_title != (selected_ticket.get("title") or "Untitled ticket")
+                    or normalized_title != clean_ticket_title(selected_ticket.get("title"))
                 ):
                     selected_ticket["urgency"] = urgency_choice
                     selected_ticket["title"] = normalized_title
@@ -759,7 +769,7 @@ if submitted:
             if result.get("ticket"):
                 ticket_data = result["ticket"]
                 ticket_data["urgency"] = normalize_urgency(ticket_data.get("urgency"))
-                ticket_data["title"] = (ticket_data.get("title") or "Untitled ticket").strip()
+                ticket_data["title"] = clean_ticket_title(ticket_data.get("title"))
             else:
                 snippet = " ".join(message.strip().split())[:60]
                 ticket_data = {
