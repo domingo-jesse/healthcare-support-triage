@@ -551,7 +551,6 @@ if submitted:
                 st.session_state.selected_ticket_id = saved_entry["saved_id"]
 
             st.success("Analysis complete")
-            render_result(result, submitted_request=message.strip())
         except Exception as e:
             st.error(f"Error: {e}")
 
@@ -597,9 +596,12 @@ status_counts = {status: 0 for status in STATUS_STAGES}
 for ticket in filtered_tickets:
     status_counts[normalize_status(ticket.get("status"))] += 1
 
-st.markdown(
+st.sidebar.markdown("## 🎫 Ticket Queue")
+st.sidebar.caption(f"{len(filtered_tickets)} ticket(s)")
+st.sidebar.markdown("### 📊 Ticket Stats")
+st.sidebar.markdown(
     f"""
-    <div class="stats-grid">
+    <div class="stats-grid" style="grid-template-columns: 1fr; margin-bottom: 0.5rem;">
       <div class="stat-box"><div class="stat-label">Total Tickets</div><div class="stat-value">{len(filtered_tickets)}</div></div>
       <div class="stat-box"><div class="stat-label">High Urgency</div><div class="stat-value">{sum(1 for t in filtered_tickets if normalize_urgency((t.get("ticket") or {}).get("urgency")) == "high")}</div></div>
       <div class="stat-box"><div class="stat-label">In Progress</div><div class="stat-value">{status_counts['in_progress']}</div></div>
@@ -608,13 +610,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-st.markdown(
-    '<div class="mini-note">Queue view replaces kanban movement controls for easier triage updates.</div>',
-    unsafe_allow_html=True,
-)
-
-st.sidebar.markdown("## 🎫 Ticket Queue")
-st.sidebar.caption(f"{len(filtered_tickets)} ticket(s)")
+st.sidebar.caption("Queue view replaces kanban movement controls for easier triage updates.")
 
 if not filtered_tickets:
     st.sidebar.caption("No tickets match the current filters.")
