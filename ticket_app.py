@@ -646,9 +646,6 @@ with left_col:
     st.markdown('<div class="three-col-header">🎫 Ticket queues</div>', unsafe_allow_html=True)
     blocked_tickets = [t for t in open_tickets if normalize_status(t.get("status")) == "blocked"]
     active_open_tickets = [t for t in open_tickets if normalize_status(t.get("status")) in {"new", "in_progress"}]
-    st.caption(
-        f"{len(active_open_tickets)} open · {len(blocked_tickets)} blocked · {len(closed_tickets)} archived · {len(deleted_tickets)} deleted/spam"
-    )
 
     def move_ticket_to_queue(ticket: dict, target_queue: str) -> None:
         ticket_id = ticket.get("saved_id")
@@ -805,21 +802,19 @@ with left_col:
     )
     if queue_focus != st.session_state.active_queue:
         st.session_state.active_queue = queue_focus
-    ordered_sections = sorted(
-        queue_sections,
-        key=lambda section: 0 if section[2] == st.session_state.active_queue else 1,
+    selected_section = next(
+        (section for section in queue_sections if section[2] == st.session_state.active_queue),
+        queue_sections[0],
     )
     with st.container(height=760, border=False):
         st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
-        for queue_name, queue_caption, queue_key, queue_tickets in ordered_sections:
-            if queue_key == st.session_state.active_queue:
-                st.markdown(
-                    f'<div class="queue-section-title-lg">{queue_name}</div>',
-                    unsafe_allow_html=True,
-                )
-            st.caption(queue_caption)
-            with st.container(height=220, border=False):
-                render_ticket_buttons(queue_key, queue_tickets)
+        queue_name, _queue_caption, queue_key, queue_tickets = selected_section
+        st.markdown(
+            f'<div class="queue-section-title-lg">{queue_name}</div>',
+            unsafe_allow_html=True,
+        )
+        with st.container(height=700, border=False):
+            render_ticket_buttons(queue_key, queue_tickets)
         st.markdown("</div>", unsafe_allow_html=True)
 
 with middle_col:
