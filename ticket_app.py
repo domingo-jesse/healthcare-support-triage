@@ -160,31 +160,37 @@ st.markdown(
         }
         .queue-ticket-button div[data-testid="stButton"] > button {
             border-radius: 10px;
-            border: 1px solid var(--border);
+            border: 1px solid transparent;
             min-height: 50px;
             padding: 0.55rem 0.65rem;
             text-align: left;
-            font-size: 0.82rem;
-            background: #ffffff;
+            font-size: 0.86rem;
+            font-weight: 600;
             box-shadow: none;
+            transition: all 120ms ease-in-out;
         }
         .queue-ticket-button div[data-testid="stButton"] > button:hover {
-            border-color: var(--accent);
-            background: #fafcff;
+            transform: translateY(-1px);
+            filter: brightness(0.98);
         }
         .queue-ticket-button.selected div[data-testid="stButton"] > button {
             border-color: var(--accent);
-            background: var(--accent-soft);
             box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
         }
-        .queue-move-select div[data-testid="stSelectbox"] {
-            margin-bottom: 0.15rem;
+        .queue-ticket-button.urgency-high div[data-testid="stButton"] > button {
+            background: #fee2e2;
+            color: #7f1d1d;
         }
-        .queue-move-select div[data-testid="stSelectbox"] [data-baseweb="select"] > div {
-            min-height: 36px;
-            border-radius: 8px;
-            font-size: 0.76rem;
-            padding-right: 0.25rem;
+        .queue-ticket-button.urgency-medium div[data-testid="stButton"] > button {
+            background: #fef3c7;
+            color: #78350f;
+        }
+        .queue-ticket-button.urgency-low div[data-testid="stButton"] > button {
+            background: #dbeafe;
+            color: #1e3a8a;
+        }
+        .queue-move-control {
+            margin-top: 0.5rem;
         }
         @media (max-width: 1100px) {
             .block-container {
@@ -505,7 +511,6 @@ with left_col:
         f"{len(active_open_tickets)} open · {len(blocked_tickets)} blocked · {len(closed_tickets)} archived · {len(deleted_tickets)} deleted/spam"
     )
 
-    urgency_icons = {"high": "🟥", "medium": "🟨", "low": "🟦"}
     urgency_labels = {"high": "High", "medium": "Medium", "low": "Low"}
     def group_by_urgency(tickets: list[dict]) -> dict[str, list[dict]]:
         return {
@@ -567,50 +572,26 @@ with left_col:
         if not tickets:
             st.caption("No tickets in this section.")
             return
-        queue_targets = {
-            "Open Queue": "open",
-            "Blocked Queue": "blocked",
-            "Archived Queue": "archived",
-            "Deleted / Spam": "deleted",
-        }
-        queue_labels = list(queue_targets.keys())
         for idx, ticket in enumerate(tickets):
             ticket_id = ticket.get("saved_id", "")
             widget_suffix = f"{ticket_id or 'noid'}_{idx}"
             title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
             urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
-            queue_title = f"{urgency_icons[urgency]} {title}"
             is_selected = st.session_state.selected_ticket_id == ticket_id
-            row_col, archive_col = st.columns([7.9, 2.1], gap="small")
-            with row_col:
-                selected_class = "selected" if is_selected else ""
-                st.markdown(
-                    f'<div class="queue-item-row queue-ticket-button {selected_class}">',
-                    unsafe_allow_html=True,
-                )
-                if st.button(
-                    queue_title,
-                    key=f"queue_{section_key}_{widget_suffix}",
-                    use_container_width=True,
-                    help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-                ):
-                    st.session_state.selected_ticket_id = ticket_id
-                    st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
-            with archive_col:
-                st.markdown('<div class="queue-item-row queue-move-select">', unsafe_allow_html=True)
-                current_label = ticket_queue_label(ticket, section_key)
-                selected_label = st.selectbox(
-                    "Move ticket",
-                    options=queue_labels,
-                    index=queue_labels.index(current_label),
-                    key=f"move_{section_key}_{widget_suffix}",
-                    label_visibility="collapsed",
-                )
-                if selected_label != current_label:
-                    move_ticket_to_queue(ticket, queue_targets[selected_label])
-                    st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
+            selected_class = "selected" if is_selected else ""
+            st.markdown(
+                f'<div class="queue-item-row queue-ticket-button urgency-{urgency} {selected_class}">',
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                title,
+                key=f"queue_{section_key}_{widget_suffix}",
+                use_container_width=True,
+                help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
+            ):
+                st.session_state.selected_ticket_id = ticket_id
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
     open_tab, blocked_tab, archive_tab, deleted_tab = st.tabs(
         ["🟢 Open Queue", "⛔ Blocked Queue", "📦 Archived Queue", "🗑️ Deleted / Spam"]
@@ -717,6 +698,26 @@ with middle_col:
                             st.session_state.open_tickets.append(selected)
                     persist_ticket_state()
                     st.rerun()
+
+                queue_targets = {
+                    "Open Queue": "open",
+                    "Blocked Queue": "blocked",
+                    "Archived Queue": "archived",
+                    "Deleted / Spam": "deleted",
+                }
+                queue_labels = list(queue_targets.keys())
+                current_label = ticket_queue_label(selected, "details")
+                st.markdown('<div class="queue-move-control">', unsafe_allow_html=True)
+                selected_label = st.selectbox(
+                    "Move ticket to queue",
+                    options=queue_labels,
+                    index=queue_labels.index(current_label),
+                    key=f"move_details_{selected.get('saved_id')}",
+                )
+                if selected_label != current_label:
+                    move_ticket_to_queue(selected, queue_targets[selected_label])
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
             else:
                 render_empty_result_placeholder()
         else:
