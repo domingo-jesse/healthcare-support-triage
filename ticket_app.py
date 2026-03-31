@@ -19,30 +19,17 @@ st.markdown(
     """
     <style>
         :root {
-            --bg-primary: #f3f6fc;
+            --bg-primary: #f5f7fb;
             --bg-secondary: #ffffff;
-            --bg-tertiary: #eef2ff;
-            --text-primary: #111827;
-            --text-muted: #64748b;
-            --border: #dbe4f2;
-            --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-            --accent: #4f46e5;
-            --accent-soft: rgba(79, 70, 229, 0.12);
-            --card-gradient: linear-gradient(145deg, #ffffff 0%, #f8fbff 100%);
-        }
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-primary: #060b18;
-                --bg-secondary: #0f172a;
-                --bg-tertiary: #101d3a;
-                --text-primary: #e2e8f0;
-                --text-muted: #94a3b8;
-                --border: #22314d;
-                --shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
-                --accent: #818cf8;
-                --accent-soft: rgba(129, 140, 248, 0.18);
-                --card-gradient: linear-gradient(145deg, #0f172a 0%, #14233f 100%);
-            }
+            --bg-tertiary: #f8fafc;
+            --text-primary: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+            --accent: #2f7df4;
+            --accent-soft: #eaf2ff;
+            --accent-danger: #ef4444;
+            --card-gradient: linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
         }
         .main, .stApp {
             background: var(--bg-primary);
@@ -57,7 +44,7 @@ st.markdown(
             max-width: 1320px;
         }
         .app-title {
-            font-size: 2.1rem;
+            font-size: 2rem;
             font-weight: 800;
             margin-bottom: 0.25rem;
             color: var(--text-primary);
@@ -69,7 +56,7 @@ st.markdown(
         .card {
             background: var(--card-gradient);
             border: 1px solid var(--border);
-            border-radius: 18px;
+            border-radius: 14px;
             padding: 1.25rem 1.25rem 1rem 1.25rem;
             box-shadow: var(--shadow);
             margin-bottom: 1rem;
@@ -91,14 +78,14 @@ st.markdown(
         }
         .badge {
             display: inline-block;
-            padding: 0.35rem 0.7rem;
+            padding: 0.25rem 0.65rem;
             border-radius: 999px;
-            font-size: 0.8rem;
+            font-size: 0.74rem;
             font-weight: 700;
         }
-        .badge-low { background: #dcfce7; color: #166534; }
+        .badge-low { background: #dbeafe; color: #1d4ed8; }
         .badge-medium { background: #fef3c7; color: #92400e; }
-        .badge-high { background: #fee2e2; color: #991b1b; }
+        .badge-high { background: #fee2e2; color: #b91c1c; }
         .ticket-title {
             font-size: 1.1rem;
             font-weight: 700;
@@ -125,7 +112,7 @@ st.markdown(
             color: var(--text-primary);
         }
         div[data-testid="stTextArea"] textarea {
-            border-radius: 14px;
+            border-radius: 12px;
             border: 1px solid var(--border);
             background: var(--bg-secondary);
             color: var(--text-primary);
@@ -135,9 +122,14 @@ st.markdown(
             font-weight: 700;
             height: 2.5rem;
         }
+        div[data-testid="stFormSubmitButton"] > button {
+            background: var(--accent-danger);
+            border-color: var(--accent-danger);
+            color: #fff;
+        }
         .toolbar-card {
             border: 1px solid var(--border);
-            border-radius: 16px;
+            border-radius: 12px;
             background: var(--bg-secondary);
             padding: 0.75rem 1rem;
             margin: 0.4rem 0 0.95rem 0;
@@ -153,7 +145,7 @@ st.markdown(
         }
         .stat-box {
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: 12px;
             background: var(--bg-secondary);
             padding: 0.8rem;
             box-shadow: var(--shadow);
@@ -200,33 +192,72 @@ st.markdown(
             margin-top: 0.3rem;
             margin-bottom: 0.65rem;
         }
-        .list-container {
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            background: var(--bg-secondary);
-            padding: 1rem;
-            box-shadow: var(--shadow);
-        }
-        .list-header {
-            font-size: 1rem;
-            font-weight: 800;
-            margin-bottom: 0.75rem;
-        }
-        .list-item {
+        .queue-table {
             border: 1px solid var(--border);
             border-radius: 12px;
-            background: var(--card-gradient);
-            padding: 0.75rem;
-            margin-bottom: 0.55rem;
+            background: var(--bg-secondary);
+            overflow: hidden;
+            box-shadow: var(--shadow);
         }
-        .list-item-title {
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.35rem;
+        .queue-title {
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            padding: 0.9rem 1rem;
+            font-weight: 800;
+            font-size: 1rem;
         }
-        .list-item-meta {
+        .queue-head {
+            display: grid;
+            grid-template-columns: 48px 120px 1.9fr 130px 130px 165px 130px 120px;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
             color: var(--text-muted);
-            font-size: 0.78rem;
+            font-size: 0.76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .queue-row {
+            display: grid;
+            grid-template-columns: 48px 120px 1.9fr 130px 130px 165px 130px 120px;
+            gap: 0.5rem;
+            align-items: center;
+            padding: 0.7rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.92rem;
+        }
+        .queue-row:last-child {
+            border-bottom: 0;
+        }
+        .ticket-type {
+            font-weight: 600;
+        }
+        .ticket-urgency {
+            color: var(--text-primary);
+        }
+        .ticket-date {
+            color: var(--text-muted);
+            font-size: 0.84rem;
+        }
+        .ticket-assignee {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .ticket-id-link {
+            color: var(--accent);
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .ticket-id-link:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 1200px) {
+            .queue-head, .queue-row {
+                grid-template-columns: 42px 100px 1.5fr 110px 110px 150px 110px 110px;
+                font-size: 0.82rem;
+            }
         }
     </style>
     """,
@@ -442,7 +473,7 @@ if "selected_ticket_label" not in st.session_state:
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="app-subtitle">Simple triage queue with dark-mode support, search, and status tracking.</div>',
+    '<div class="app-subtitle">Simple triage queue with a clean service-desk layout, search, and status tracking.</div>',
     unsafe_allow_html=True,
 )
 
@@ -591,7 +622,21 @@ st.markdown(
 )
 
 st.markdown(
-    f'<div class="list-container"><div class="list-header">Ticket Queue ({len(filtered_tickets)})</div></div>',
+    f"""
+    <div class="queue-table">
+      <div class="queue-title">Ticket Queue ({len(filtered_tickets)})</div>
+      <div class="queue-head">
+        <div>Select</div>
+        <div>Ticket ID</div>
+        <div>Type</div>
+        <div>Priority</div>
+        <div>Urgency</div>
+        <div>Status</div>
+        <div>Created</div>
+        <div>Open</div>
+      </div>
+    </div>
+    """,
     unsafe_allow_html=True,
 )
 
@@ -602,19 +647,20 @@ for ticket in filtered_tickets:
     ticket_id = ticket.get("saved_id", "")
     urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
     title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
+    created_display = (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
 
-    st.markdown(
-        f"""
-        <div class="list-item">
-            <div class="list-item-title">{html.escape(title)}</div>
-            {urgency_badge_html(urgency)}
-            <div class="list-item-meta">Ticket ID: {html.escape(ticket_id)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    row_cols = st.columns([1.2, 1, 0.9])
+    row_cols = st.columns([0.5, 1, 2.6, 1, 1, 1.7, 1.3, 1.1], gap="small")
     with row_cols[0]:
+        st.markdown("☐")
+    with row_cols[1]:
+        st.markdown(f'<a class="ticket-id-link">#{html.escape(ticket_id[-6:] if ticket_id else "N/A")}</a>', unsafe_allow_html=True)
+    with row_cols[2]:
+        st.markdown(f'<div class="ticket-type">{html.escape(title)}</div>', unsafe_allow_html=True)
+    with row_cols[3]:
+        st.markdown(urgency_badge_html(urgency), unsafe_allow_html=True)
+    with row_cols[4]:
+        st.markdown(f'<div class="ticket-urgency">{urgency.title()}</div>', unsafe_allow_html=True)
+    with row_cols[5]:
         selected_status = st.selectbox(
             "Status",
             options=list(STATUS_STAGES),
@@ -627,7 +673,9 @@ for ticket in filtered_tickets:
             ticket["status"] = selected_status
             save_tickets(st.session_state.tickets)
             st.rerun()
-    with row_cols[1]:
+    with row_cols[6]:
+        st.markdown(f'<div class="ticket-date">{html.escape(created_display)}</div>', unsafe_allow_html=True)
+    with row_cols[7]:
         if st.button("Open ticket", key=f"open_{ticket_id}", use_container_width=True):
             st.session_state.selected_ticket_id = ticket_id
             st.rerun()
