@@ -600,6 +600,8 @@ if "message_input" not in st.session_state:
     st.session_state.message_input = ""
 if "active_queue" not in st.session_state:
     st.session_state.active_queue = "open"
+if "triage_feedback" not in st.session_state:
+    st.session_state.triage_feedback = None
 
 # Migration support: move completed tickets from open storage into archive storage.
 migrated_open_tickets = []
@@ -806,20 +808,19 @@ with left_col:
         (section for section in queue_sections if section[2] == st.session_state.active_queue),
         queue_sections[0],
     )
-    with st.container(height=760, border=False):
+    with st.container():
         st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
         queue_name, _queue_caption, queue_key, queue_tickets = selected_section
         st.markdown(
             f'<div class="queue-section-title-lg">{queue_name}</div>',
             unsafe_allow_html=True,
         )
-        with st.container(height=700, border=False):
-            render_ticket_buttons(queue_key, queue_tickets)
+        render_ticket_buttons(queue_key, queue_tickets)
         st.markdown("</div>", unsafe_allow_html=True)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
-    with st.container(height=760, border=False):
+    with st.container():
         st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
         if st.session_state.selected_ticket_id:
             selected = next(
@@ -937,11 +938,24 @@ with right_col:
         )
         submitted = st.form_submit_button("Run triage", type="secondary", use_container_width=False)
     st.markdown("</div>", unsafe_allow_html=True)
+    triage_feedback = st.session_state.triage_feedback
+    if triage_feedback:
+        feedback_type = triage_feedback.get("type", "info")
+        feedback_message = triage_feedback.get("message", "")
+        if feedback_type == "success":
+            st.success(feedback_message)
+        elif feedback_type == "error":
+            st.error(feedback_message)
+        elif feedback_type == "warning":
+            st.warning(feedback_message)
+        else:
+            st.info(feedback_message)
 
 
 if submitted:
     if not message.strip():
-        st.warning("Please enter a message.")
+        st.session_state.triage_feedback = {"type": "warning", "message": "Please enter a message."}
+        st.rerun()
     else:
         try:
             with st.spinner("Analyzing issue..."):
@@ -984,8 +998,11 @@ if submitted:
                 st.session_state.active_queue = "open"
             persist_ticket_state()
             st.session_state.selected_ticket_id = saved_entry["saved_id"]
-
-            st.success("Analysis complete")
+            st.session_state.triage_feedback = {
+                "type": "success",
+                "message": "Analysis complete. Ticket added to the queue.",
+            }
             st.rerun()
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.session_state.triage_feedback = {"type": "error", "message": f"Error: {e}"}
+            st.rerun()
