@@ -573,6 +573,8 @@ if "selected_ticket_id" not in st.session_state:
     st.session_state.selected_ticket_id = None
 if "message_input" not in st.session_state:
     st.session_state.message_input = ""
+if "active_queue" not in st.session_state:
+    st.session_state.active_queue = "open"
 
 # Migration support: move completed tickets from open storage into archive storage.
 migrated_open_tickets = []
@@ -650,6 +652,7 @@ with left_col:
             active_ticket["status"] = "deleted"
             st.session_state.deleted_tickets.append(active_ticket)
 
+        st.session_state.active_queue = "archive" if target_queue == "archived" else target_queue
         persist_ticket_state()
 
     def ticket_queue_label(ticket: dict, section_key: str) -> str:
@@ -750,6 +753,7 @@ with left_col:
                 help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
             ):
                 st.session_state.selected_ticket_id = ticket_id
+                st.session_state.active_queue = section_key
                 st.rerun()
 
     queue_sections = [
@@ -758,7 +762,25 @@ with left_col:
         ("📦 Archived Queue", "Completed tickets", "archive", closed_tickets),
         ("🗑️ Deleted / Spam", "Deleted and spam tickets", "deleted", deleted_tickets),
     ]
-    for queue_name, queue_caption, queue_key, queue_tickets in queue_sections:
+    queue_labels = {
+        "open": f"Open ({len(active_open_tickets)})",
+        "blocked": f"Blocked ({len(blocked_tickets)})",
+        "archive": f"Archived ({len(closed_tickets)})",
+        "deleted": f"Deleted ({len(deleted_tickets)})",
+    }
+    st.radio(
+        "Queue focus",
+        options=["open", "blocked", "archive", "deleted"],
+        format_func=lambda key: queue_labels[key],
+        horizontal=True,
+        key="active_queue",
+        label_visibility="collapsed",
+    )
+    ordered_sections = sorted(
+        queue_sections,
+        key=lambda section: 0 if section[2] == st.session_state.active_queue else 1,
+    )
+    for queue_name, queue_caption, queue_key, queue_tickets in ordered_sections:
         st.markdown(f"#### {queue_name}")
         st.caption(queue_caption)
         with st.container(height=180, border=False):
@@ -923,8 +945,10 @@ if submitted:
             }
             if result["classification"] == "spam":
                 st.session_state.deleted_tickets.append(saved_entry)
+                st.session_state.active_queue = "deleted"
             else:
                 st.session_state.open_tickets.append(saved_entry)
+                st.session_state.active_queue = "open"
             persist_ticket_state()
             st.session_state.selected_ticket_id = saved_entry["saved_id"]
 
