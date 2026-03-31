@@ -18,46 +18,73 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-        .main {
-            background-color: #f6f8fb;
+        :root {
+            --bg-primary: #f3f6fc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #eef2ff;
+            --text-primary: #111827;
+            --text-muted: #64748b;
+            --border: #dbe4f2;
+            --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            --accent: #4f46e5;
+            --accent-soft: rgba(79, 70, 229, 0.12);
+            --card-gradient: linear-gradient(145deg, #ffffff 0%, #f8fbff 100%);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #060b18;
+                --bg-secondary: #0f172a;
+                --bg-tertiary: #101d3a;
+                --text-primary: #e2e8f0;
+                --text-muted: #94a3b8;
+                --border: #22314d;
+                --shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+                --accent: #818cf8;
+                --accent-soft: rgba(129, 140, 248, 0.18);
+                --card-gradient: linear-gradient(145deg, #0f172a 0%, #14233f 100%);
+            }
+        }
+        .main, .stApp {
+            background: radial-gradient(circle at top right, #172554 0%, transparent 30%), var(--bg-primary);
+            color: var(--text-primary);
         }
         .block-container {
-            padding-top: 2rem;
+            padding-top: 1.8rem;
             padding-bottom: 2rem;
-            max-width: 1200px;
+            max-width: 1320px;
         }
         .app-title {
-            font-size: 2.2rem;
+            font-size: 2.1rem;
             font-weight: 800;
             margin-bottom: 0.25rem;
-            color: #1f2a44;
+            color: var(--text-primary);
         }
         .app-subtitle {
-            color: #5b6475;
-            margin-bottom: 1.5rem;
+            color: var(--text-muted);
+            margin-bottom: 1.3rem;
         }
         .card {
-            background: white;
-            border: 1px solid #e6eaf2;
+            background: var(--card-gradient);
+            border: 1px solid var(--border);
             border-radius: 18px;
             padding: 1.25rem 1.25rem 1rem 1.25rem;
-            box-shadow: 0 4px 18px rgba(17, 24, 39, 0.05);
+            box-shadow: var(--shadow);
             margin-bottom: 1rem;
         }
         .card h3 {
             margin-top: 0;
             margin-bottom: 0.75rem;
-            color: #1f2a44;
+            color: var(--text-primary);
         }
         .metric-label {
             font-size: 0.82rem;
-            color: #6b7280;
+            color: var(--text-muted);
             margin-bottom: 0.25rem;
         }
         .metric-value {
             font-size: 1.05rem;
             font-weight: 700;
-            color: #111827;
+            color: var(--text-primary);
         }
         .badge {
             display: inline-block;
@@ -66,50 +93,109 @@ st.markdown(
             font-size: 0.8rem;
             font-weight: 700;
         }
-        .badge-low {
-            background: #dcfce7;
-            color: #166534;
-        }
-        .badge-medium {
-            background: #fef3c7;
-            color: #92400e;
-        }
-        .badge-high {
-            background: #fee2e2;
-            color: #991b1b;
-        }
+        .badge-low { background: #dcfce7; color: #166534; }
+        .badge-medium { background: #fef3c7; color: #92400e; }
+        .badge-high { background: #fee2e2; color: #991b1b; }
         .ticket-title {
-            font-size: 1.15rem;
+            font-size: 1.1rem;
             font-weight: 700;
-            color: #111827;
+            color: var(--text-primary);
             margin-top: 0.35rem;
             margin-bottom: 0.5rem;
         }
         .section-label {
             font-size: 0.82rem;
             font-weight: 700;
-            color: #6b7280;
+            color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.04em;
             margin-top: 1rem;
             margin-bottom: 0.35rem;
         }
         .response-box {
-            background: #f8fafc;
-            border: 1px solid #e5e7eb;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
             border-radius: 14px;
             padding: 1rem;
             white-space: pre-wrap;
             line-height: 1.55;
-            color: #111827;
+            color: var(--text-primary);
         }
         div[data-testid="stTextArea"] textarea {
             border-radius: 14px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
         }
         div[data-testid="stButton"] > button {
-            border-radius: 12px;
+            border-radius: 10px;
             font-weight: 700;
-            height: 3rem;
+            height: 2.5rem;
+        }
+        .toolbar-card {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--bg-secondary);
+            padding: 0.75rem 1rem;
+            margin: 0.4rem 0 0.95rem 0;
+            box-shadow: var(--shadow);
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .stat-box {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--bg-secondary);
+            padding: 0.8rem;
+            box-shadow: var(--shadow);
+        }
+        .stat-label { font-size: 0.8rem; color: var(--text-muted); }
+        .stat-value { font-size: 1.3rem; color: var(--text-primary); font-weight: 800; }
+        .board-column {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--bg-secondary);
+            padding: 0.8rem;
+            min-height: 250px;
+        }
+        .board-title {
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 0.4rem;
+        }
+        .column-chip {
+            display: inline-block;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            padding: 0.15rem 0.5rem;
+            font-size: 0.72rem;
+            margin-left: 0.45rem;
+            font-weight: 700;
+        }
+        .ticket-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card-gradient);
+            padding: 0.65rem 0.75rem;
+            margin: 0.45rem 0;
+        }
+        .ticket-meta {
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            margin-top: 0.2rem;
+        }
+        .mini-note {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.3rem;
+            margin-bottom: 0.65rem;
         }
     </style>
     """,
@@ -131,6 +217,14 @@ Mark""",
 
 TICKETS_DB_PATH = Path(__file__).parent / "tickets_store.json"
 URGENCY_RANK = {"high": 0, "medium": 1, "low": 2}
+URGENCY_SCORES = {"high": 100, "medium": 60, "low": 30}
+STATUS_STAGES = ("new", "in_progress", "blocked", "completed")
+STATUS_LABELS = {
+    "new": "New",
+    "in_progress": "In Progress",
+    "blocked": "Blocked",
+    "completed": "Completed",
+}
 
 
 def load_tickets() -> list[dict]:
@@ -162,24 +256,20 @@ def rank_tickets(tickets: list[dict]) -> list[dict]:
     )
 
 
-def get_open_tickets(tickets: list[dict]) -> list[dict]:
-    return [ticket for ticket in tickets if ticket.get("status", "open") == "open"]
-
-
 def get_completed_tickets(tickets: list[dict]) -> list[dict]:
-    return [ticket for ticket in tickets if ticket.get("status") == "completed"]
-
-
-URGENCY_SCORES = {
-    "high": 100,
-    "medium": 60,
-    "low": 30,
-}
+    return [ticket for ticket in tickets if normalize_status(ticket.get("status")) == "completed"]
 
 
 def normalize_urgency(urgency: str | None) -> str:
     normalized = (urgency or "").strip().lower()
     return normalized if normalized in {"low", "medium", "high"} else "medium"
+
+
+def normalize_status(status: str | None) -> str:
+    normalized = (status or "").strip().lower()
+    if normalized == "open":
+        return "new"
+    return normalized if normalized in STATUS_STAGES else "new"
 
 
 def ensure_unique_ticket_id(ticket_id: str | None, existing_tickets: list[dict]) -> str:
@@ -197,11 +287,10 @@ def ensure_unique_ticket_id(ticket_id: str | None, existing_tickets: list[dict])
 
 def urgency_badge_html(urgency: str) -> str:
     urgency = normalize_urgency(urgency)
-    css_class = {
-        "low": "badge-low",
-        "medium": "badge-medium",
-        "high": "badge-high",
-    }.get(urgency, "badge-medium")
+    css_class = {"low": "badge-low", "medium": "badge-medium", "high": "badge-high"}.get(
+        urgency,
+        "badge-medium",
+    )
     return f'<span class="badge {css_class}">{urgency.upper()}</span>'
 
 
@@ -284,9 +373,7 @@ def render_result(result: dict, submitted_request: str = "") -> None:
         st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
 
         if root_cause:
-            st.markdown(
-                '<div class="section-label">Likely Root Cause</div>', unsafe_allow_html=True
-            )
+            st.markdown('<div class="section-label">Likely Root Cause</div>', unsafe_allow_html=True)
             st.write(root_cause)
 
         if next_steps:
@@ -310,12 +397,11 @@ def render_result(result: dict, submitted_request: str = "") -> None:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander("Raw JSON output"):
-        st.json(result)
-
 
 if "tickets" not in st.session_state:
     st.session_state.tickets = load_tickets()
+    for entry in st.session_state.tickets:
+        entry["status"] = normalize_status(entry.get("status"))
 if "selected_ticket_id" not in st.session_state:
     st.session_state.selected_ticket_id = None
 if "message_input" not in st.session_state:
@@ -325,7 +411,7 @@ if "selected_ticket_label" not in st.session_state:
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="app-subtitle">AI-powered triage for support messages, ticket creation, and suggested customer responses.</div>',
+    '<div class="app-subtitle">Dark-mode optimized triage board with sortable tickets and stage movement controls.</div>',
     unsafe_allow_html=True,
 )
 
@@ -340,7 +426,9 @@ with st.sidebar:
     st.divider()
     st.subheader("Queue")
 
-    queue_tickets = rank_tickets(get_open_tickets(st.session_state.tickets))
+    queue_tickets = rank_tickets(
+        [t for t in st.session_state.tickets if normalize_status(t.get("status")) != "completed"]
+    )
     completed_tickets = rank_tickets(get_completed_tickets(st.session_state.tickets))
 
     st.caption(f"Open: {len(queue_tickets)}  •  Completed: {len(completed_tickets)}")
@@ -369,14 +457,13 @@ with st.sidebar:
             ticket_lookup[label] = entry.get("saved_id", "")
 
     selected_label = st.selectbox("Open saved ticket", ticket_options, key="selected_ticket_label")
-    selected_saved_id = ticket_lookup.get(selected_label)
-    st.session_state.selected_ticket_id = selected_saved_id
+    st.session_state.selected_ticket_id = ticket_lookup.get(selected_label)
 
 with st.form("triage_form", clear_on_submit=True):
     message = st.text_area(
         "Incoming support message",
         key="message_input",
-        height=220,
+        height=190,
         placeholder="Paste a support ticket here...",
     )
     submitted = st.form_submit_button("Run triage", type="primary", use_container_width=True)
@@ -399,7 +486,7 @@ if submitted:
                 saved_entry = {
                     "saved_id": normalized_ticket_id,
                     "created_at": datetime.now(timezone.utc).isoformat(),
-                    "status": "open",
+                    "status": "new",
                     "message": message.strip(),
                     "classification": result["classification"],
                     "ticket": result["ticket"],
@@ -413,7 +500,142 @@ if submitted:
             render_result(result, submitted_request=message.strip())
         except Exception as e:
             st.error(f"Error: {e}")
-elif st.session_state.selected_ticket_id:
+
+st.markdown('<div class="toolbar-card">🎛️ Ticket board controls</div>', unsafe_allow_html=True)
+controls_left, controls_mid, controls_right = st.columns([1.2, 1, 1.1], gap="medium")
+with controls_left:
+    search_term = st.text_input("Search tickets", placeholder="Search by title or message")
+with controls_mid:
+    urgency_filter = st.selectbox("Filter by urgency", ["All", "high", "medium", "low"])
+with controls_right:
+    sort_mode = st.selectbox(
+        "Sort tickets",
+        ["Manual order", "Urgency (high to low)", "Newest first", "Oldest first"],
+    )
+
+all_tickets = list(st.session_state.tickets)
+for ticket in all_tickets:
+    ticket["status"] = normalize_status(ticket.get("status"))
+
+
+def ticket_matches(ticket: dict) -> bool:
+    title = ((ticket.get("ticket") or {}).get("title") or "").lower()
+    body = (ticket.get("message") or "").lower()
+    urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
+    term_ok = not search_term.strip() or search_term.lower().strip() in f"{title} {body}"
+    urgency_ok = urgency_filter == "All" or urgency == urgency_filter
+    return term_ok and urgency_ok
+
+
+filtered_tickets = [t for t in all_tickets if ticket_matches(t)]
+if sort_mode == "Urgency (high to low)":
+    filtered_tickets = sorted(
+        filtered_tickets,
+        key=lambda t: URGENCY_SCORES.get(normalize_urgency((t.get("ticket") or {}).get("urgency")), 0),
+        reverse=True,
+    )
+elif sort_mode == "Newest first":
+    filtered_tickets = sorted(filtered_tickets, key=lambda t: t.get("created_at", ""), reverse=True)
+elif sort_mode == "Oldest first":
+    filtered_tickets = sorted(filtered_tickets, key=lambda t: t.get("created_at", ""))
+
+status_counts = {status: 0 for status in STATUS_STAGES}
+for ticket in filtered_tickets:
+    status_counts[normalize_status(ticket.get("status"))] += 1
+
+st.markdown(
+    f"""
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-label">Total Tickets</div><div class="stat-value">{len(filtered_tickets)}</div></div>
+      <div class="stat-box"><div class="stat-label">High Urgency</div><div class="stat-value">{sum(1 for t in filtered_tickets if normalize_urgency((t.get("ticket") or {}).get("urgency")) == "high")}</div></div>
+      <div class="stat-box"><div class="stat-label">In Progress</div><div class="stat-value">{status_counts['in_progress']}</div></div>
+      <div class="stat-box"><div class="stat-label">Blocked</div><div class="stat-value">{status_counts['blocked']}</div></div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="mini-note">Features added: dark-mode visual refresh, kanban ticket stages, search/filter/sort toolbar, and manual up/down ordering controls.</div>',
+    unsafe_allow_html=True,
+)
+
+board_cols = st.columns(4, gap="small")
+for idx, status in enumerate(STATUS_STAGES):
+    with board_cols[idx]:
+        tickets_for_status = [
+            t for t in filtered_tickets if normalize_status(t.get("status")) == status
+        ]
+        st.markdown(
+            f'<div class="board-column"><div class="board-title">{STATUS_LABELS[status]} <span class="column-chip">{len(tickets_for_status)}</span></div>',
+            unsafe_allow_html=True,
+        )
+
+        if not tickets_for_status:
+            st.caption("No tickets here.")
+
+        for ticket in tickets_for_status:
+            ticket_id = ticket.get("saved_id", "")
+            urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
+            title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
+
+            st.markdown(
+                f"""
+                <div class="ticket-card">
+                    <strong>{html.escape(title)}</strong><br/>
+                    {urgency_badge_html(urgency)}
+                    <div class="ticket-meta">{ticket_id}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            action_cols = st.columns([1, 1, 1])
+            with action_cols[0]:
+                if st.button("Open", key=f"open_{ticket_id}", use_container_width=True):
+                    st.session_state.selected_ticket_id = ticket_id
+                    st.rerun()
+            with action_cols[1]:
+                move_label = "↺ Reopen" if status == "completed" else "Next ▶"
+                if st.button(move_label, key=f"next_{ticket_id}", use_container_width=True):
+                    stage_idx = STATUS_STAGES.index(status)
+                    ticket["status"] = (
+                        STATUS_STAGES[0]
+                        if status == "completed"
+                        else STATUS_STAGES[min(stage_idx + 1, len(STATUS_STAGES) - 1)]
+                    )
+                    save_tickets(st.session_state.tickets)
+                    st.rerun()
+            with action_cols[2]:
+                if st.button("◀ Prev", key=f"prev_{ticket_id}", use_container_width=True):
+                    stage_idx = STATUS_STAGES.index(status)
+                    ticket["status"] = STATUS_STAGES[max(stage_idx - 1, 0)]
+                    save_tickets(st.session_state.tickets)
+                    st.rerun()
+
+            order_cols = st.columns([1, 1])
+            with order_cols[0]:
+                if st.button("↑", key=f"up_{ticket_id}", use_container_width=True):
+                    current_index = st.session_state.tickets.index(ticket)
+                    if current_index > 0:
+                        st.session_state.tickets[current_index - 1], st.session_state.tickets[current_index] = (
+                            st.session_state.tickets[current_index],
+                            st.session_state.tickets[current_index - 1],
+                        )
+                        save_tickets(st.session_state.tickets)
+                        st.rerun()
+            with order_cols[1]:
+                if st.button("↓", key=f"down_{ticket_id}", use_container_width=True):
+                    current_index = st.session_state.tickets.index(ticket)
+                    if current_index < len(st.session_state.tickets) - 1:
+                        st.session_state.tickets[current_index + 1], st.session_state.tickets[current_index] = (
+                            st.session_state.tickets[current_index],
+                            st.session_state.tickets[current_index + 1],
+                        )
+                        save_tickets(st.session_state.tickets)
+                        st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+if st.session_state.selected_ticket_id:
     selected = next(
         (
             entry
@@ -423,23 +645,7 @@ elif st.session_state.selected_ticket_id:
         None,
     )
     if selected:
-        st.info(
-            f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}"
-        )
-        selected_status = selected.get("status", "open")
-        if selected_status == "open":
-            if st.button("Resolve ticket", type="primary"):
-                selected["status"] = "completed"
-                save_tickets(st.session_state.tickets)
-                st.success("Ticket resolved and moved to Completed Tasks.")
-                st.rerun()
-        else:
-            st.caption("This ticket is completed.")
-            if st.button("Reopen ticket"):
-                selected["status"] = "open"
-                save_tickets(st.session_state.tickets)
-                st.success("Ticket reopened and moved back to the active queue.")
-                st.rerun()
+        st.info(f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}")
         render_result(
             {
                 "classification": selected.get("classification", "ticket"),
