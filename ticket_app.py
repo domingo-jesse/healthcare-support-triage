@@ -13,6 +13,7 @@ st.set_page_config(
     page_title="Healthcare Support Triage",
     page_icon="🩺",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown(
@@ -36,7 +37,8 @@ st.markdown(
             color: var(--text-primary);
         }
         [data-testid="stHeader"] {
-            display: none;
+            background: transparent;
+            border-bottom: 0;
         }
         .block-container {
             padding-top: 1rem;
@@ -117,10 +119,27 @@ st.markdown(
             background: var(--bg-secondary);
             color: var(--text-primary);
         }
+        div[data-testid="stTextInput"] input,
+        div[data-testid="stSelectbox"] [data-baseweb="select"] > div {
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            color: var(--text-primary);
+        }
+        div[data-testid="stSelectbox"] [data-baseweb="select"] span {
+            color: var(--text-primary);
+        }
+        div[data-testid="stSelectbox"] [data-baseweb="select"]:focus-within > div {
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.25);
+        }
         div[data-testid="stButton"] > button {
             border-radius: 10px;
             font-weight: 700;
             height: 2.5rem;
+            background: #ffffff;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
         }
         div[data-testid="stFormSubmitButton"] > button {
             background: var(--accent-danger);
@@ -476,6 +495,7 @@ st.markdown(
     '<div class="app-subtitle">Simple triage queue with a clean service-desk layout, search, and status tracking.</div>',
     unsafe_allow_html=True,
 )
+st.caption("Need the left panel back? Click the top-left arrow to expand the Examples sidebar.")
 
 with st.sidebar:
     st.header("Examples")
