@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Healthcare Support Triage",
     page_icon="🩺",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
@@ -43,7 +43,9 @@ st.markdown(
         .block-container {
             padding-top: 1rem;
             padding-bottom: 2rem;
-            max-width: 1320px;
+            max-width: 100%;
+            padding-left: 1.25rem;
+            padding-right: 1.25rem;
         }
         .app-title {
             font-size: 2rem;
@@ -487,59 +489,17 @@ if "selected_ticket_id" not in st.session_state:
     st.session_state.selected_ticket_id = None
 if "message_input" not in st.session_state:
     st.session_state.message_input = ""
-if "selected_ticket_label" not in st.session_state:
-    st.session_state.selected_ticket_label = "None"
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="app-subtitle">Simple triage queue with a clean service-desk layout, search, and status tracking.</div>',
     unsafe_allow_html=True,
 )
-st.caption("Need the left panel back? Click the top-left arrow to expand the Examples sidebar.")
-
-with st.sidebar:
-    st.header("Examples")
+with st.expander("Examples", expanded=False):
     example_choice = st.selectbox("Load a sample", ["Custom"] + list(EXAMPLES.keys()))
-    st.markdown("Use one of these sample issues or paste your own message.")
-
+    st.caption("Use one of these sample issues or paste your own message.")
     if example_choice != "Custom":
         st.session_state.message_input = EXAMPLES[example_choice]
-
-    st.divider()
-    st.subheader("Queue")
-
-    queue_tickets = rank_tickets(
-        [t for t in st.session_state.tickets if normalize_status(t.get("status")) != "completed"]
-    )
-    completed_tickets = rank_tickets(get_completed_tickets(st.session_state.tickets))
-
-    st.caption(f"Open: {len(queue_tickets)}  •  Completed: {len(completed_tickets)}")
-
-    ticket_lookup: dict[str, str] = {}
-    ticket_options = ["None"]
-
-    if queue_tickets:
-        ticket_options.append("— Open tickets —")
-        for idx, entry in enumerate(queue_tickets):
-            label = (
-                f"{idx + 1}. [{(entry.get('ticket') or {}).get('urgency', 'medium').upper()}] "
-                f"{(entry.get('ticket') or {}).get('title', 'No title')}"
-            )
-            ticket_options.append(label)
-            ticket_lookup[label] = entry.get("saved_id", "")
-
-    if completed_tickets:
-        ticket_options.append("— Completed tickets —")
-        for idx, entry in enumerate(completed_tickets):
-            label = (
-                f"{idx + 1}. [{(entry.get('ticket') or {}).get('urgency', 'medium').upper()}] "
-                f"{(entry.get('ticket') or {}).get('title', 'No title')}"
-            )
-            ticket_options.append(label)
-            ticket_lookup[label] = entry.get("saved_id", "")
-
-    selected_label = st.selectbox("Open saved ticket", ticket_options, key="selected_ticket_label")
-    st.session_state.selected_ticket_id = ticket_lookup.get(selected_label)
 
 with st.form("triage_form", clear_on_submit=True):
     message = st.text_area(
