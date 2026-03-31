@@ -560,11 +560,17 @@ def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
     return root_cause.strip(), next_steps.strip(), suggested_response.strip()
 
 
-def render_result(result: dict, submitted_request: str = "") -> None:
+def render_result(
+    result: dict,
+    submitted_request: str = "",
+    default_urgency: str = "medium",
+    default_status: str = "in_progress",
+    key_prefix: str = "overview",
+) -> tuple[str, str]:
     st.markdown('<div class="card card-overview"><h3>📌 Overview</h3>', unsafe_allow_html=True)
     ticket = result.get("ticket") or {}
-    st.markdown('<div class="overview-row-box">', unsafe_allow_html=True)
-    col_classification, col_ticket_id, col_title, col_urgency, col_completed = st.columns(5)
+    st.markdown('<div class="overview-row-box"><div class="overview-row-grid">', unsafe_allow_html=True)
+    col_classification, col_ticket_id, col_title, col_urgency, col_status = st.columns(5)
     with col_classification:
         st.markdown('<div class="section-label">Classification</div>', unsafe_allow_html=True)
         st.markdown(
@@ -585,25 +591,26 @@ def render_result(result: dict, submitted_request: str = "") -> None:
         )
     with col_urgency:
         st.markdown('<div class="section-label">Urgency</div>', unsafe_allow_html=True)
-        urgency_value = normalize_urgency(ticket.get("urgency"))
-        st.selectbox(
+        urgency_options = ["low", "medium", "high"]
+        selected_urgency = st.selectbox(
             "Urgency",
-            options=["low", "medium", "high"],
-            index=["low", "medium", "high"].index(urgency_value),
-            key=f"overview_urgency_{ticket.get('ticketId', 'unknown')}",
+            options=urgency_options,
+            index=urgency_options.index(default_urgency),
+            format_func=lambda urgency: urgency.title(),
+            key=f"{key_prefix}_urgency_{ticket.get('ticketId', 'unknown')}",
             label_visibility="collapsed",
         )
-    with col_completed:
-        st.markdown('<div class="section-label">Completed</div>', unsafe_allow_html=True)
-        completed = normalize_status(result.get("status")) == "completed"
-        st.selectbox(
-            "Completed",
-            options=["No", "Yes"],
-            index=1 if completed else 0,
-            key=f"overview_completed_{ticket.get('ticketId', 'unknown')}",
+    with col_status:
+        st.markdown('<div class="section-label">Status</div>', unsafe_allow_html=True)
+        selected_status = st.selectbox(
+            "Status",
+            options=list(PROGRESS_OPTIONS),
+            index=list(PROGRESS_OPTIONS).index(default_status),
+            format_func=lambda status: STATUS_LABELS[status],
+            key=f"{key_prefix}_status_{ticket.get('ticketId', 'unknown')}",
             label_visibility="collapsed",
         )
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
     if submitted_request:
         st.markdown(
             '<div class="overview-submitted-request"><div class="section-label">Submitted Request</div></div>',
@@ -644,6 +651,8 @@ def render_result(result: dict, submitted_request: str = "") -> None:
         )
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+    return selected_urgency, selected_status
 
 
 def render_empty_result_placeholder() -> None:
@@ -775,39 +784,26 @@ with middle_col:
             st.info(
                 f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}"
             )
-            urgency_options = ["low", "medium", "high"]
-            status_options = list(PROGRESS_OPTIONS)
-            default_progress = current_status if current_status in status_options else "in_progress"
-            default_urgency = current_urgency if current_urgency in urgency_options else "medium"
+            default_status = current_status if current_status in PROGRESS_OPTIONS else "in_progress"
+            default_urgency = current_urgency if current_urgency in {"low", "medium", "high"} else "medium"
 
-            urgency_choice = st.selectbox(
-                "Urgency",
-                options=urgency_options,
-                index=urgency_options.index(default_urgency),
-                format_func=lambda urgency: urgency.title(),
-                key=f"selected_urgency_{selected.get('saved_id')}",
-            )
-            progress_choice = st.selectbox(
-                "Progress",
-                options=status_options,
-                index=status_options.index(default_progress),
-                format_func=lambda status: STATUS_LABELS[status],
-                key=f"selected_progress_{selected.get('saved_id')}",
-            )
-            if urgency_choice != current_urgency or progress_choice != current_status:
-                selected_ticket["urgency"] = urgency_choice
-                selected["status"] = progress_choice
-                save_tickets(st.session_state.tickets)
-                st.rerun()
-
-            render_result(
+            urgency_choice, progress_choice = render_result(
                 {
                     "classification": selected.get("classification", "ticket"),
                     "ticket": selected_ticket,
                     "resolution": selected.get("resolution", ""),
                 },
                 submitted_request=selected.get("message", ""),
+                default_urgency=default_urgency,
+                default_status=default_status,
+                key_prefix=f"selected_{selected.get('saved_id')}",
             )
+
+            if urgency_choice != current_urgency or progress_choice != current_status:
+                selected_ticket["urgency"] = urgency_choice
+                selected["status"] = progress_choice
+                save_tickets(st.session_state.tickets)
+                st.rerun()
         else:
             render_empty_result_placeholder()
     else:
