@@ -793,14 +793,18 @@ with left_col:
         "archive": f"Archived ({len(closed_tickets)})",
         "deleted": f"Deleted ({len(deleted_tickets)})",
     }
-    st.radio(
+    queue_options = ["open", "blocked", "archive", "deleted"]
+    active_queue = st.session_state.active_queue if st.session_state.active_queue in queue_options else "open"
+    queue_focus = st.radio(
         "Queue focus",
-        options=["open", "blocked", "archive", "deleted"],
+        options=queue_options,
         format_func=lambda key: queue_labels[key],
         horizontal=True,
-        key="active_queue",
+        index=queue_options.index(active_queue),
         label_visibility="collapsed",
     )
+    if queue_focus != st.session_state.active_queue:
+        st.session_state.active_queue = queue_focus
     ordered_sections = sorted(
         queue_sections,
         key=lambda section: 0 if section[2] == st.session_state.active_queue else 1,
