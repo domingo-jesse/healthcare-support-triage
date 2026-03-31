@@ -31,7 +31,6 @@ st.markdown(
             --accent-soft: #eaf2ff;
             --accent-danger: #ef4444;
             --card-gradient: linear-gradient(155deg, #ffffff 0%, #f7faff 100%);
-            --overview-gradient: linear-gradient(155deg, #ffffff 0%, #eef5ff 100%);
             --resolution-gradient: linear-gradient(155deg, #ffffff 0%, #f2f8ff 100%);
         }
         .main, .stApp {
@@ -76,9 +75,6 @@ st.markdown(
             box-shadow: var(--shadow);
             margin-bottom: 0.75rem;
         }
-        .card-overview {
-            background: var(--overview-gradient);
-        }
         .card-resolution {
             background: var(--resolution-gradient);
         }
@@ -104,9 +100,7 @@ st.markdown(
             font-size: 0.74rem;
             font-weight: 700;
         }
-        .badge-low { background: #dbeafe; color: #1d4ed8; }
         .badge-medium { background: #fef3c7; color: #92400e; }
-        .badge-high { background: #fee2e2; color: #b91c1c; }
         .badge-spam { background: #f3e8ff; color: #7e22ce; }
         .ticket-title {
             font-size: 1.1rem;
@@ -242,55 +236,6 @@ st.markdown(
             border-color: var(--accent-danger);
             color: #fff;
         }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-        }
-        .stat-box {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: var(--bg-secondary);
-            padding: 0.45rem 0.55rem;
-            box-shadow: var(--shadow);
-        }
-        .stat-label { font-size: 0.74rem; color: var(--text-muted); }
-        .stat-value { font-size: 1.08rem; color: var(--text-primary); font-weight: 800; line-height: 1.2; }
-        .board-column {
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            background: var(--bg-secondary);
-            padding: 0.8rem;
-            min-height: 250px;
-        }
-        .board-title {
-            font-weight: 800;
-            color: var(--text-primary);
-            margin-bottom: 0.4rem;
-        }
-        .column-chip {
-            display: inline-block;
-            border-radius: 999px;
-            background: var(--accent-soft);
-            color: var(--accent);
-            padding: 0.15rem 0.5rem;
-            font-size: 0.72rem;
-            margin-left: 0.45rem;
-            font-weight: 700;
-        }
-        .ticket-card {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: var(--card-gradient);
-            padding: 0.65rem 0.75rem;
-            margin: 0.45rem 0;
-        }
-        .ticket-meta {
-            color: var(--text-muted);
-            font-size: 0.76rem;
-            margin-top: 0.2rem;
-        }
         .mini-note {
             font-size: 0.8rem;
             color: var(--text-muted);
@@ -299,40 +244,6 @@ st.markdown(
         }
         .queue-item-row {
             margin: 0.18rem 0;
-        }
-        .queue-scroll-wrap {
-            max-height: 72vh;
-            overflow-y: auto;
-            padding-right: 0.25rem;
-        }
-        .queue-urgency-box {
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.45rem 0.55rem;
-            line-height: 1.2;
-            background: rgba(15, 23, 42, 0.02);
-        }
-        .queue-urgency-box.high {
-            background: rgba(239, 68, 68, 0.14);
-            border-color: rgba(239, 68, 68, 0.3);
-        }
-        .queue-urgency-box.medium {
-            background: rgba(251, 191, 36, 0.14);
-            border-color: rgba(251, 191, 36, 0.3);
-        }
-        .queue-urgency-box.low {
-            background: rgba(59, 130, 246, 0.12);
-            border-color: rgba(59, 130, 246, 0.28);
-        }
-        .queue-urgency-title {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.12rem;
-        }
-        .queue-urgency-meta {
-            font-size: 0.72rem;
-            color: var(--text-muted);
         }
         .queue-ticket-button div[data-testid="stButton"] > button {
             border-radius: 10px;
@@ -365,72 +276,7 @@ st.markdown(
             filter: brightness(0.98);
             border-color: var(--accent);
         }
-        .queue-table {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: var(--bg-secondary);
-            overflow: hidden;
-            box-shadow: var(--shadow);
-        }
-        .queue-title {
-            background: #f9fafb;
-            border-bottom: 1px solid var(--border);
-            padding: 0.9rem 1rem;
-            font-weight: 800;
-            font-size: 1rem;
-        }
-        .queue-head {
-            display: grid;
-            grid-template-columns: 72px 120px 2fr 190px 165px 130px 120px;
-            gap: 0.5rem;
-            padding: 0.75rem 1rem;
-            background: #f9fafb;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-muted);
-            font-size: 0.76rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .queue-row {
-            display: grid;
-            grid-template-columns: 72px 120px 2fr 190px 165px 130px 120px;
-            gap: 0.5rem;
-            align-items: center;
-            padding: 0.7rem 1rem;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.92rem;
-        }
-        .queue-row:last-child {
-            border-bottom: 0;
-        }
-        .ticket-type {
-            font-weight: 600;
-        }
-        .ticket-urgency {
-            color: var(--text-primary);
-        }
-        .ticket-date {
-            color: var(--text-muted);
-            font-size: 0.84rem;
-        }
-        .ticket-assignee {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-        .ticket-id-link {
-            color: var(--accent);
-            font-weight: 700;
-            text-decoration: none;
-        }
-        .ticket-id-link:hover {
-            text-decoration: underline;
-        }
         @media (max-width: 1200px) {
-            .queue-head, .queue-row {
-                grid-template-columns: 62px 100px 1.7fr 160px 150px 110px 110px;
-                font-size: 0.82rem;
-            }
             .overview-row-grid {
                 grid-template-columns: 1fr 1fr;
             }
@@ -453,7 +299,6 @@ STATUS_LABELS = {
     "completed": "Completed",
 }
 PROGRESS_OPTIONS = ("in_progress", "blocked", "completed")
-OPEN_STATUSES = ("new", "in_progress", "blocked")
 
 
 def load_tickets() -> list[dict]:
@@ -522,10 +367,6 @@ def rank_tickets(tickets: list[dict]) -> list[dict]:
     )
 
 
-def get_completed_tickets(tickets: list[dict]) -> list[dict]:
-    return [ticket for ticket in tickets if normalize_status(ticket.get("status")) == "completed"]
-
-
 def normalize_urgency(urgency: str | None) -> str:
     normalized = (urgency or "").strip().lower()
     return normalized if normalized in {"low", "medium", "high"} else "medium"
@@ -553,15 +394,6 @@ def ensure_unique_ticket_id(ticket_id: str | None, existing_tickets: list[dict])
         candidate = f"{candidate}-{uuid4().hex[:4].upper()}"
 
     return candidate
-
-
-def urgency_badge_html(urgency: str) -> str:
-    urgency = normalize_urgency(urgency)
-    css_class = {"low": "badge-low", "medium": "badge-medium", "high": "badge-high"}.get(
-        urgency,
-        "badge-medium",
-    )
-    return f'<span class="badge {css_class}">{urgency.upper()}</span>'
 
 
 def classification_badge_html(classification: str) -> str:
