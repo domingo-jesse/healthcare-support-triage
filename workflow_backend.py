@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from agents import Agent, ModelSettings, TResponseInputItem, Runner, RunConfig, trace
 
 
-class ClassiferSchema(BaseModel):
+class ClassifierSchema(BaseModel):
     classification: str
 
 
@@ -12,8 +12,8 @@ class TicketAgentSchema(BaseModel):
     urgency: str
 
 
-classifer = Agent(
-    name="Classifer",
+classifier = Agent(
+    name="Classifier",
     instructions=(
         'You are a classifier. '
         'Classify the user message as either: '
@@ -24,7 +24,7 @@ classifer = Agent(
         '{"classification": "ticket"} or {"classification": "spam"}.'
     ),
     model="gpt-4.1",
-    output_type=ClassiferSchema,
+    output_type=ClassifierSchema,
     model_settings=ModelSettings(
         temperature=1,
         top_p=1,
@@ -117,8 +117,8 @@ async def run_workflow(workflow_input: WorkflowInput):
             }
         ]
 
-        classifer_result_temp = await Runner.run(
-            classifer,
+        classifier_result_temp = await Runner.run(
+            classifier,
             input=[*conversation_history],
             run_config=RunConfig(
                 trace_metadata={
@@ -129,15 +129,15 @@ async def run_workflow(workflow_input: WorkflowInput):
         )
 
         conversation_history.extend(
-            [item.to_input_item() for item in classifer_result_temp.new_items]
+            [item.to_input_item() for item in classifier_result_temp.new_items]
         )
 
-        classifer_result = {
-            "output_text": classifer_result_temp.final_output.json(),
-            "output_parsed": classifer_result_temp.final_output.model_dump(),
+        classifier_result = {
+            "output_text": classifier_result_temp.final_output.json(),
+            "output_parsed": classifier_result_temp.final_output.model_dump(),
         }
 
-        if classifer_result["output_parsed"]["classification"] == "ticket":
+        if classifier_result["output_parsed"]["classification"] == "ticket":
             ticket_agent_result_temp = await Runner.run(
                 ticket_agent,
                 input=[*conversation_history],
@@ -178,7 +178,7 @@ async def run_workflow(workflow_input: WorkflowInput):
             }
 
             return {
-                "classification": classifer_result["output_parsed"]["classification"],
+                "classification": classifier_result["output_parsed"]["classification"],
                 "ticket": ticket_agent_result["output_parsed"],
                 "resolution": resolution_agent_result["output_text"],
             }
@@ -203,7 +203,7 @@ async def run_workflow(workflow_input: WorkflowInput):
         }
 
         return {
-            "classification": classifer_result["output_parsed"]["classification"],
+            "classification": classifier_result["output_parsed"]["classification"],
             "ticket": None,
             "resolution": spam_agent_result["output_text"],
         }
