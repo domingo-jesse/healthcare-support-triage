@@ -180,25 +180,33 @@ st.markdown(
         .queue-ticket-button.selected div[data-testid="stButton"] > button {
             border-color: var(--ticket-ring, var(--accent));
             box-shadow: inset 0 0 0 1px var(--ticket-ring-soft, rgba(59, 130, 246, 0.25));
+            background: var(--ticket-selected-bg, var(--ticket-bg, #ffffff)) !important;
+            color: var(--ticket-selected-text, var(--ticket-text, var(--text-primary))) !important;
         }
         .queue-ticket-button.urgency-high {
-            --ticket-bg: #fee2e2;
-            --ticket-text: #7f1d1d;
-            --ticket-border: #fecaca;
+            --ticket-bg: #ffffff;
+            --ticket-text: var(--text-primary);
+            --ticket-border: var(--border);
+            --ticket-selected-bg: #fee2e2;
+            --ticket-selected-text: #7f1d1d;
             --ticket-ring: #dc2626;
             --ticket-ring-soft: rgba(220, 38, 38, 0.28);
         }
         .queue-ticket-button.urgency-medium {
-            --ticket-bg: #fef3c7;
-            --ticket-text: #78350f;
-            --ticket-border: #fde68a;
+            --ticket-bg: #ffffff;
+            --ticket-text: var(--text-primary);
+            --ticket-border: var(--border);
+            --ticket-selected-bg: #fef3c7;
+            --ticket-selected-text: #78350f;
             --ticket-ring: #d97706;
             --ticket-ring-soft: rgba(217, 119, 6, 0.28);
         }
         .queue-ticket-button.urgency-low {
-            --ticket-bg: #dbeafe;
-            --ticket-text: #1e3a8a;
-            --ticket-border: #bfdbfe;
+            --ticket-bg: #ffffff;
+            --ticket-text: var(--text-primary);
+            --ticket-border: var(--border);
+            --ticket-selected-bg: #dbeafe;
+            --ticket-selected-text: #1e3a8a;
             --ticket-ring: #2563eb;
             --ticket-ring-soft: rgba(37, 99, 235, 0.28);
         }
