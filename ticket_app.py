@@ -444,6 +444,7 @@ STATUS_LABELS = {
     "completed": "Completed",
 }
 PROGRESS_OPTIONS = ("in_progress", "blocked", "completed")
+OPEN_STATUSES = ("new", "in_progress", "blocked")
 
 
 def load_tickets() -> list[dict]:
@@ -489,6 +490,8 @@ def normalize_status(status: str | None) -> str:
     normalized = (status or "").strip().lower()
     if normalized == "open":
         return "new"
+    if normalized in {"closed", "done"}:
+        return "completed"
     return normalized if normalized in STATUS_STAGES else "new"
 
 
@@ -668,6 +671,8 @@ all_tickets = list(st.session_state.tickets)
 for ticket in all_tickets:
     ticket["status"] = normalize_status(ticket.get("status"))
 filtered_tickets = rank_tickets(all_tickets)
+open_tickets = [ticket for ticket in filtered_tickets if normalize_status(ticket.get("status")) in OPEN_STATUSES]
+closed_tickets = [ticket for ticket in filtered_tickets if normalize_status(ticket.get("status")) == "completed"]
 
 status_counts = {status: 0 for status in STATUS_STAGES}
 for ticket in filtered_tickets:
@@ -681,27 +686,33 @@ with left_col:
         f"""
         <div class="stats-grid" style="grid-template-columns: 1fr; margin-bottom: 0.5rem;">
           <div class="stat-box"><div class="stat-label">Total Tickets</div><div class="stat-value">{len(filtered_tickets)}</div></div>
+          <div class="stat-box"><div class="stat-label">Open Queue</div><div class="stat-value">{len(open_tickets)}</div></div>
+          <div class="stat-box"><div class="stat-label">Completed/Closed</div><div class="stat-value">{len(closed_tickets)}</div></div>
           <div class="stat-box"><div class="stat-label">High Urgency</div><div class="stat-value">{sum(1 for t in filtered_tickets if normalize_urgency((t.get('ticket') or {}).get('urgency')) == 'high')}</div></div>
-          <div class="stat-box"><div class="stat-label">In Progress</div><div class="stat-value">{status_counts['in_progress']}</div></div>
-          <div class="stat-box"><div class="stat-label">Blocked</div><div class="stat-value">{status_counts['blocked']}</div></div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="three-col-header">🎫 Queue</div>', unsafe_allow_html=True)
-    st.caption(f"{len(filtered_tickets)} ticket(s)")
+    st.markdown('<div class="three-col-header">🎫 Queues</div>', unsafe_allow_html=True)
+    st.caption(f"{len(filtered_tickets)} total ticket(s)")
 
     if not filtered_tickets:
         st.caption("No tickets match the current queue.")
 
-    tickets_by_urgency: dict[str, list[dict]] = {"high": [], "medium": [], "low": []}
-    for ticket in filtered_tickets:
-        tickets_by_urgency[normalize_urgency((ticket.get("ticket") or {}).get("urgency"))].append(ticket)
-
     urgency_icons = {"high": "🟥", "medium": "🟨", "low": "🟦"}
     urgency_labels = {"high": "High urgency", "medium": "Medium urgency", "low": "Low urgency"}
 
-    with st.container(height=640, border=False):
+    def render_queue_section(section_key: str, section_title: str, tickets: list[dict]) -> None:
+        st.markdown(f"#### {section_title} ({len(tickets)})")
+        if not tickets:
+            st.caption("No tickets in this queue.")
+            return
+
+        tickets_by_urgency: dict[str, list[dict]] = {"high": [], "medium": [], "low": []}
+        for ticket in tickets:
+            urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
+            tickets_by_urgency[urgency].append(ticket)
+
         for urgency in ("high", "medium", "low"):
             urgency_tickets = tickets_by_urgency[urgency]
             if not urgency_tickets:
@@ -721,13 +732,18 @@ with left_col:
                     )
                     if st.button(
                         queue_title,
-                        key=f"queue_open_{ticket_id}",
+                        key=f"queue_{section_key}_{ticket_id}",
                         use_container_width=True,
                         help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
                     ):
                         st.session_state.selected_ticket_id = ticket_id
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
+
+    with st.container(height=640, border=False):
+        render_queue_section("open", "🟢 Open Queue", open_tickets)
+        st.markdown("---")
+        render_queue_section("closed", "✅ Completed/Closed Queue", closed_tickets)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
@@ -747,36 +763,30 @@ with middle_col:
             st.info(
                 f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}"
             )
-            control_col_1, control_col_2 = st.columns(2, gap="small")
+            combined_options = [
+                (urgency, progress)
+                for urgency in ("low", "medium", "high")
+                for progress in PROGRESS_OPTIONS
+            ]
+            default_progress = current_status if current_status in PROGRESS_OPTIONS else "in_progress"
+            default_pair = (current_urgency, default_progress)
+            default_index = (
+                combined_options.index(default_pair) if default_pair in combined_options else 0
+            )
 
-            with control_col_1:
-                urgency_choice = st.selectbox(
-                    "Urgency",
-                    options=("low", "medium", "high"),
-                    index=("low", "medium", "high").index(current_urgency),
-                    format_func=lambda value: value.title(),
-                    key=f"selected_urgency_{selected.get('saved_id')}",
-                )
-                if urgency_choice != current_urgency:
-                    selected_ticket["urgency"] = urgency_choice
-                    save_tickets(st.session_state.tickets)
-                    st.rerun()
-
-            with control_col_2:
-                default_progress = (
-                    current_status if current_status in PROGRESS_OPTIONS else "in_progress"
-                )
-                progress_choice = st.selectbox(
-                    "Progress",
-                    options=PROGRESS_OPTIONS,
-                    index=PROGRESS_OPTIONS.index(default_progress),
-                    format_func=lambda value: STATUS_LABELS[value],
-                    key=f"selected_progress_{selected.get('saved_id')}",
-                )
-                if progress_choice != current_status:
-                    selected["status"] = progress_choice
-                    save_tickets(st.session_state.tickets)
-                    st.rerun()
+            combined_choice = st.selectbox(
+                "Urgency + Progress",
+                options=combined_options,
+                index=default_index,
+                format_func=lambda pair: f"{pair[0].title()} • {STATUS_LABELS[pair[1]]}",
+                key=f"selected_combined_state_{selected.get('saved_id')}",
+            )
+            urgency_choice, progress_choice = combined_choice
+            if urgency_choice != current_urgency or progress_choice != current_status:
+                selected_ticket["urgency"] = urgency_choice
+                selected["status"] = progress_choice
+                save_tickets(st.session_state.tickets)
+                st.rerun()
 
             render_result(
                 {
