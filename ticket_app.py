@@ -20,19 +20,15 @@ st.markdown(
     """
     <style>
         :root {
-            --bg-primary: #f5f7fb;
+            --bg-primary: #f6f8fb;
             --bg-secondary: #ffffff;
             --bg-tertiary: #f8fafc;
             --text-primary: #1f2937;
             --text-muted: #6b7280;
             --border: #e5e7eb;
-            --shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
-            --accent: #2f7df4;
-            --accent-soft: #eaf2ff;
-            --accent-danger: #ef4444;
-            --card-gradient: linear-gradient(155deg, #ffffff 0%, #f7faff 100%);
-            --overview-gradient: linear-gradient(155deg, #ffffff 0%, #eef5ff 100%);
-            --resolution-gradient: linear-gradient(155deg, #ffffff 0%, #f2f8ff 100%);
+            --shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+            --accent: #3b82f6;
+            --accent-soft: #eff6ff;
         }
         .main, .stApp {
             background: var(--bg-primary);
@@ -43,58 +39,50 @@ st.markdown(
             border-bottom: 0;
         }
         .block-container {
-            padding-top: 1rem;
+            padding-top: 1.25rem;
             padding-bottom: 2rem;
-            max-width: 100%;
-            padding-left: 1.25rem;
-            padding-right: 1.25rem;
-        }
-        .centered-stack {
-            max-width: 900px;
+            max-width: 1200px;
             margin: 0 auto;
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
         }
         .three-col-header {
-            font-size: 1rem;
-            font-weight: 800;
-            margin-bottom: 0.6rem;
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
         }
         .app-title {
-            font-size: 2rem;
+            font-size: 1.75rem;
             font-weight: 800;
             margin-bottom: 0.25rem;
             color: var(--text-primary);
         }
         .app-subtitle {
             color: var(--text-muted);
-            margin-bottom: 1.3rem;
+            margin-bottom: 1.1rem;
         }
-        .card {
-            background: var(--card-gradient);
+        .panel-card {
+            background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 0.95rem 1rem 0.8rem 1rem;
+            border-radius: 12px;
+            padding: 1rem;
             box-shadow: var(--shadow);
-            margin-bottom: 0.75rem;
+            margin-bottom: 1rem;
         }
-        .card-overview {
-            background: var(--overview-gradient);
-        }
-        .card-resolution {
-            background: var(--resolution-gradient);
-        }
-        .card h3 {
+        .section-title {
+            font-size: 1rem;
+            font-weight: 700;
             margin-top: 0;
-            margin-bottom: 0.75rem;
-            color: var(--text-primary);
+            margin-bottom: 0.7rem;
         }
         .metric-label {
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             color: var(--text-muted);
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.2rem;
         }
         .metric-value {
-            font-size: 1.05rem;
-            font-weight: 700;
+            font-size: 0.95rem;
+            font-weight: 600;
             color: var(--text-primary);
         }
         .badge {
@@ -109,61 +97,37 @@ st.markdown(
         .badge-high { background: #fee2e2; color: #b91c1c; }
         .badge-spam { background: #f3e8ff; color: #7e22ce; }
         .ticket-title {
-            font-size: 1.1rem;
-            font-weight: 700;
+            font-size: 1rem;
+            font-weight: 600;
             color: var(--text-primary);
-            margin-top: 0.35rem;
-            margin-bottom: 0.5rem;
+            margin-top: 0.2rem;
+            margin-bottom: 0.35rem;
         }
         .section-label {
-            font-size: 0.82rem;
-            font-weight: 700;
+            font-size: 0.76rem;
+            font-weight: 600;
             color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            margin-top: 0.7rem;
-            margin-bottom: 0.35rem;
+            margin-top: 0.2rem;
+            margin-bottom: 0.25rem;
         }
         .response-box {
             background: var(--bg-tertiary);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 0.7rem 0.8rem;
+            border-radius: 10px;
+            padding: 0.65rem 0.75rem;
             white-space: pre-wrap;
             line-height: 1.45;
             color: var(--text-primary);
         }
-        .overview-row-box {
-            border: 0;
-            border-radius: 0;
-            background: transparent;
-            padding: 0;
-            margin-top: 0.4rem;
-            box-shadow: none;
-        }
-        .overview-row-grid {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 0.7rem;
-            align-items: start;
-        }
-        .overview-row-item .section-label {
-            margin-top: 0;
-            margin-bottom: 0.2rem;
-        }
-        .overview-row-item .metric-value,
-        .overview-row-item .ticket-title {
-            margin: 0;
-            font-size: 0.93rem;
-        }
-        .overview-submitted-request {
-            margin-top: 0.5rem;
+        .section-spacer {
+            height: 18px;
         }
         div[data-testid="stTextArea"] textarea {
-            border-radius: 12px;
+            border-radius: 10px;
             border: 1px solid var(--border);
             background: var(--bg-secondary);
             color: var(--text-primary);
+            min-height: 120px !important;
         }
         div[data-testid="stTextInput"] input,
         div[data-testid="stSelectbox"] [data-baseweb="select"] > div {
@@ -180,116 +144,12 @@ st.markdown(
             box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.25);
         }
         div[data-testid="stButton"] > button {
-            border-radius: 10px;
-            font-weight: 700;
-            height: 2.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            height: 2.2rem;
             background: #ffffff;
             color: var(--text-primary);
             border: 1px solid var(--border);
-        }
-        section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
-            height: auto;
-            min-height: 4.2rem;
-            text-align: left;
-            padding: 0.7rem 0.75rem;
-            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-        }
-        section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
-            border-color: var(--accent);
-            background: var(--accent-soft);
-            box-shadow: 0 0 0 1px rgba(47, 125, 244, 0.15);
-        }
-        section[data-testid="stSidebar"] {
-            min-width: 420px;
-            max-width: 420px;
-        }
-        section[data-testid="stSidebar"] .block-container {
-            padding-top: 1rem;
-        }
-        .urgency-ticket-card {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 0.65rem 0.75rem;
-            margin: 0.45rem 0 0.2rem 0;
-            box-shadow: var(--shadow);
-        }
-        .urgency-ticket-card.high {
-            background: rgba(239, 68, 68, 0.16);
-            border-color: rgba(239, 68, 68, 0.35);
-        }
-        .urgency-ticket-card.medium {
-            background: rgba(251, 191, 36, 0.16);
-            border-color: rgba(251, 191, 36, 0.35);
-        }
-        .urgency-ticket-card.low {
-            background: rgba(59, 130, 246, 0.14);
-            border-color: rgba(59, 130, 246, 0.3);
-        }
-        .urgency-ticket-title {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.15rem;
-        }
-        .urgency-ticket-meta {
-            font-size: 0.78rem;
-            color: var(--text-primary);
-            opacity: 0.9;
-            line-height: 1.35;
-        }
-        div[data-testid="stFormSubmitButton"] > button {
-            background: var(--accent-danger);
-            border-color: var(--accent-danger);
-            color: #fff;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-        }
-        .stat-box {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: var(--bg-secondary);
-            padding: 0.45rem 0.55rem;
-            box-shadow: var(--shadow);
-        }
-        .stat-label { font-size: 0.74rem; color: var(--text-muted); }
-        .stat-value { font-size: 1.08rem; color: var(--text-primary); font-weight: 800; line-height: 1.2; }
-        .board-column {
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            background: var(--bg-secondary);
-            padding: 0.8rem;
-            min-height: 250px;
-        }
-        .board-title {
-            font-weight: 800;
-            color: var(--text-primary);
-            margin-bottom: 0.4rem;
-        }
-        .column-chip {
-            display: inline-block;
-            border-radius: 999px;
-            background: var(--accent-soft);
-            color: var(--accent);
-            padding: 0.15rem 0.5rem;
-            font-size: 0.72rem;
-            margin-left: 0.45rem;
-            font-weight: 700;
-        }
-        .ticket-card {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: var(--card-gradient);
-            padding: 0.65rem 0.75rem;
-            margin: 0.45rem 0;
-        }
-        .ticket-meta {
-            color: var(--text-muted);
-            font-size: 0.76rem;
-            margin-top: 0.2rem;
         }
         .mini-note {
             font-size: 0.8rem;
@@ -300,145 +160,38 @@ st.markdown(
         .queue-item-row {
             margin: 0.05rem 0;
         }
-        .queue-scroll-wrap {
-            max-height: 72vh;
-            overflow-y: auto;
-            padding-right: 0.25rem;
-        }
-        .queue-urgency-box {
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.45rem 0.55rem;
-            line-height: 1.2;
-            background: rgba(15, 23, 42, 0.02);
-        }
-        .queue-urgency-box.high {
-            background: rgba(239, 68, 68, 0.14);
-            border-color: rgba(239, 68, 68, 0.3);
-        }
-        .queue-urgency-box.medium {
-            background: rgba(251, 191, 36, 0.14);
-            border-color: rgba(251, 191, 36, 0.3);
-        }
-        .queue-urgency-box.low {
-            background: rgba(59, 130, 246, 0.12);
-            border-color: rgba(59, 130, 246, 0.28);
-        }
-        .queue-urgency-title {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.12rem;
-        }
-        .queue-urgency-meta {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-        }
         .queue-ticket-button div[data-testid="stButton"] > button {
             border-radius: 10px;
             border: 1px solid var(--border);
-            min-height: 42px;
-            padding: 0.4rem 0.55rem;
+            min-height: 50px;
+            padding: 0.55rem 0.65rem;
             text-align: left;
-            font-size: 0.8rem;
-            background: rgba(15, 23, 42, 0.06);
-        }
-        .queue-ticket-button.high div[data-testid="stButton"] > button {
-            background: rgba(239, 68, 68, 0.36);
-            border-color: rgba(239, 68, 68, 0.35);
-        }
-        .queue-ticket-button.medium div[data-testid="stButton"] > button {
-            background: rgba(251, 191, 36, 0.36);
-            border-color: rgba(245, 158, 11, 0.35);
-        }
-        .queue-ticket-button.low div[data-testid="stButton"] > button {
-            background: rgba(59, 130, 246, 0.3);
-            border-color: rgba(59, 130, 246, 0.33);
-        }
-        .queue-move-select div[data-testid="stSelectbox"] {
-            margin-bottom: 0.2rem;
-        }
-        .queue-move-select div[data-testid="stSelectbox"] [data-baseweb="select"] > div {
-            min-height: 40px;
-            border-radius: 10px;
-            font-size: 0.8rem;
-            padding-right: 0.25rem;
-        }
-        .queue-ticket-button div[data-testid="stButton"] {
-            margin-bottom: 0.1rem;
+            font-size: 0.82rem;
+            background: #ffffff;
+            box-shadow: none;
         }
         .queue-ticket-button div[data-testid="stButton"] > button:hover {
-            filter: brightness(0.98);
             border-color: var(--accent);
+            background: #fafcff;
         }
-        .queue-table {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: var(--bg-secondary);
-            overflow: hidden;
-            box-shadow: var(--shadow);
+        .queue-ticket-button.selected div[data-testid="stButton"] > button {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+            box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
         }
-        .queue-title {
-            background: #f9fafb;
-            border-bottom: 1px solid var(--border);
-            padding: 0.9rem 1rem;
-            font-weight: 800;
-            font-size: 1rem;
+        .queue-move-select div[data-testid="stSelectbox"] {
+            margin-bottom: 0.15rem;
         }
-        .queue-head {
-            display: grid;
-            grid-template-columns: 72px 120px 2fr 190px 165px 130px 120px;
-            gap: 0.5rem;
-            padding: 0.75rem 1rem;
-            background: #f9fafb;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-muted);
+        .queue-move-select div[data-testid="stSelectbox"] [data-baseweb="select"] > div {
+            min-height: 36px;
+            border-radius: 8px;
             font-size: 0.76rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
+            padding-right: 0.25rem;
         }
-        .queue-row {
-            display: grid;
-            grid-template-columns: 72px 120px 2fr 190px 165px 130px 120px;
-            gap: 0.5rem;
-            align-items: center;
-            padding: 0.7rem 1rem;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.92rem;
-        }
-        .queue-row:last-child {
-            border-bottom: 0;
-        }
-        .ticket-type {
-            font-weight: 600;
-        }
-        .ticket-urgency {
-            color: var(--text-primary);
-        }
-        .ticket-date {
-            color: var(--text-muted);
-            font-size: 0.84rem;
-        }
-        .ticket-assignee {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-        .ticket-id-link {
-            color: var(--accent);
-            font-weight: 700;
-            text-decoration: none;
-        }
-        .ticket-id-link:hover {
-            text-decoration: underline;
-        }
-        @media (max-width: 1200px) {
-            .queue-head, .queue-row {
-                grid-template-columns: 62px 100px 1.7fr 160px 150px 110px 110px;
-                font-size: 0.82rem;
-            }
-            .overview-row-grid {
-                grid-template-columns: 1fr 1fr;
+        @media (max-width: 1100px) {
+            .block-container {
+                padding-left: 1rem;
+                padding-right: 1rem;
             }
         }
     </style>
@@ -627,99 +380,91 @@ def render_result(
     key_prefix: str = "overview",
 ) -> tuple[str, str, str, str]:
     ticket = result.get("ticket") or {}
-    st.markdown('<div class="overview-row-box"><div class="overview-row-grid">', unsafe_allow_html=True)
-    col_classification, col_ticket_id, col_title, col_urgency, col_status = st.columns([1, 1, 2.2, 1, 1])
-    with col_classification:
-        st.markdown('<div class="section-label">Classification</div>', unsafe_allow_html=True)
-        selected_classification = st.selectbox(
-            "Classification",
-            options=["ticket", "spam"],
-            index=0 if default_classification == "ticket" else 1,
-            format_func=lambda classification: classification.upper(),
-            key=f"{key_prefix}_classification_{ticket.get('ticketId', 'unknown')}",
-            label_visibility="collapsed",
-        )
-    with col_ticket_id:
-        st.markdown('<div class="section-label">Ticket ID</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="metric-value">{html.escape(ticket.get("ticketId", "N/A"))}</div>',
-            unsafe_allow_html=True,
-        )
-    with col_title:
-        st.markdown('<div class="section-label">Title</div>', unsafe_allow_html=True)
-        edited_title = st.text_area(
+    with st.container():
+        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Ticket Info</div>', unsafe_allow_html=True)
+        edited_title = st.text_input(
             "Title",
             value=ticket.get("title", "Untitled ticket"),
             key=f"{key_prefix}_title_{ticket.get('ticketId', 'unknown')}",
-            height=88,
-            label_visibility="collapsed",
         )
-    with col_urgency:
-        st.markdown('<div class="section-label">Urgency</div>', unsafe_allow_html=True)
-        urgency_options = ["low", "medium", "high"]
-        selected_urgency = st.selectbox(
-            "Urgency",
-            options=urgency_options,
-            index=urgency_options.index(default_urgency),
-            format_func=lambda urgency: urgency.title(),
-            key=f"{key_prefix}_urgency_{ticket.get('ticketId', 'unknown')}",
-            label_visibility="collapsed",
-        )
-    with col_status:
-        st.markdown('<div class="section-label">Status</div>', unsafe_allow_html=True)
-        selected_status = st.selectbox(
-            "Status",
-            options=list(PROGRESS_OPTIONS),
-            index=list(PROGRESS_OPTIONS).index(default_status),
-            format_func=lambda status: STATUS_LABELS[status],
-            key=f"{key_prefix}_status_{ticket.get('ticketId', 'unknown')}",
-            label_visibility="collapsed",
-        )
-    st.markdown("</div></div>", unsafe_allow_html=True)
-    if submitted_request:
-        st.markdown(
-            '<div class="overview-submitted-request"><div class="section-label">Submitted Request</div></div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f'<div class="response-box">{html.escape(submitted_request)}</div>',
-            unsafe_allow_html=True,
-        )
+        col_classification, col_urgency, col_status = st.columns(3, gap="small")
+        with col_classification:
+            selected_classification = st.selectbox(
+                "Classification",
+                options=["ticket", "spam"],
+                index=0 if default_classification == "ticket" else 1,
+                format_func=lambda classification: classification.title(),
+                key=f"{key_prefix}_classification_{ticket.get('ticketId', 'unknown')}",
+            )
+        with col_urgency:
+            urgency_options = ["low", "medium", "high"]
+            selected_urgency = st.selectbox(
+                "Urgency",
+                options=urgency_options,
+                index=urgency_options.index(default_urgency),
+                format_func=lambda urgency: urgency.title(),
+                key=f"{key_prefix}_urgency_{ticket.get('ticketId', 'unknown')}",
+            )
+        with col_status:
+            selected_status = st.selectbox(
+                "Status",
+                options=list(PROGRESS_OPTIONS),
+                index=list(PROGRESS_OPTIONS).index(default_status),
+                format_func=lambda status: STATUS_LABELS[status],
+                key=f"{key_prefix}_status_{ticket.get('ticketId', 'unknown')}",
+            )
+        st.caption(f"Ticket ID: {ticket.get('ticketId', 'N/A')}")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
 
     root_cause, next_steps, suggested_response = parse_resolution_text(result["resolution"])
 
-    st.markdown('<div class="card card-resolution"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
-
-    if root_cause:
-        st.markdown('<div class="section-label">Likely Root Cause</div>', unsafe_allow_html=True)
-        st.write(root_cause)
-
-    if next_steps:
-        st.markdown(
-            '<div class="section-label">Recommended Next Steps</div>', unsafe_allow_html=True
-        )
-        st.write(next_steps)
-    else:
-        st.markdown('<div class="section-label">Resolution Notes</div>', unsafe_allow_html=True)
+    with st.container():
+        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Resolution</div>', unsafe_allow_html=True)
         st.write(result["resolution"])
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    if suggested_response:
+    st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
+
+    with st.container():
+        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Likely Root Cause</div>', unsafe_allow_html=True)
+        st.write(root_cause if root_cause else "No root cause was extracted.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
+
+    with st.container():
+        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Recommended Next Steps</div>', unsafe_allow_html=True)
+        st.write(next_steps if next_steps else "No additional next steps were provided.")
+        if suggested_response:
+            st.markdown('<div class="section-label">Suggested response</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="response-box">{html.escape(suggested_response)}</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if submitted_request:
+        st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="section-label">Suggested Customer Response</div>',
+            '<div class="panel-card"><div class="section-title">Submitted Request</div>',
             unsafe_allow_html=True,
         )
         st.markdown(
-            f'<div class="response-box">{html.escape(suggested_response)}</div>',
+            f'<div class="response-box">{html.escape(submitted_request)}</div></div>',
             unsafe_allow_html=True,
         )
-
-    st.markdown("</div>", unsafe_allow_html=True)
 
     return selected_urgency, selected_status, selected_classification, edited_title.strip()
 
 
 def render_empty_result_placeholder() -> None:
-    st.markdown('<div class="card card-resolution"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
+    st.markdown('<div class="panel-card"><div class="section-title">Ticket details</div>', unsafe_allow_html=True)
     st.caption("Resolution output will appear here.")
     st.markdown(
         '<div class="mini-note">Choose a ticket from the queue or run a new triage search to populate this panel.</div>',
@@ -781,7 +526,7 @@ closed_tickets = rank_tickets(list(st.session_state.closed_tickets))
 deleted_tickets = rank_tickets(list(st.session_state.deleted_tickets))
 all_tickets = open_tickets + closed_tickets + deleted_tickets
 
-left_col, middle_col, right_col = st.columns([1.2, 1.25, 1.55], gap="large")
+left_col, middle_col, right_col = st.columns([1, 2, 1], gap="large")
 
 with left_col:
     st.markdown('<div class="three-col-header">🎫 Ticket queues</div>', unsafe_allow_html=True)
@@ -866,9 +611,14 @@ with left_col:
             title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
             urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
             queue_title = f"{urgency_icons[urgency]} {title}"
+            is_selected = st.session_state.selected_ticket_id == ticket_id
             row_col, archive_col = st.columns([7.9, 2.1], gap="small")
             with row_col:
-                st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
+                selected_class = "selected" if is_selected else ""
+                st.markdown(
+                    f'<div class="queue-item-row queue-ticket-button {selected_class}">',
+                    unsafe_allow_html=True,
+                )
                 if st.button(
                     queue_title,
                     key=f"queue_{section_key}_{widget_suffix}",
@@ -919,7 +669,7 @@ with left_col:
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
-    with st.container(height=760, border=False):
+    with st.container(border=False):
         if st.session_state.selected_ticket_id:
             selected = next(
                 (
@@ -1005,14 +755,16 @@ with middle_col:
 
 with right_col:
     st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     with st.form("triage_form", clear_on_submit=True):
         message = st.text_area(
             "Incoming support message",
             key="message_input",
-            height=250,
+            height=120,
             placeholder="Paste a support ticket here...",
         )
-        submitted = st.form_submit_button("Run triage", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("Run triage", type="secondary", use_container_width=False)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 if submitted:
