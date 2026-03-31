@@ -2,6 +2,7 @@ import asyncio
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 import streamlit as st
 
@@ -137,14 +138,16 @@ def load_tickets() -> list[dict]:
     try:
         data = json.loads(TICKETS_DB_PATH.read_text(encoding="utf-8"))
         if isinstance(data, list):
-            return data
+            return [entry for entry in data if isinstance(entry, dict)]
     except (json.JSONDecodeError, OSError):
         return []
     return []
 
 
 def save_tickets(tickets: list[dict]) -> None:
-    TICKETS_DB_PATH.write_text(json.dumps(tickets, indent=2), encoding="utf-8")
+    temp_path = TICKETS_DB_PATH.with_suffix(".tmp")
+    temp_path.write_text(json.dumps(tickets, indent=2), encoding="utf-8")
+    temp_path.replace(TICKETS_DB_PATH)
 
 
 def rank_tickets(tickets: list[dict]) -> list[dict]:
@@ -165,8 +168,26 @@ URGENCY_SCORES = {
 }
 
 
+def normalize_urgency(urgency: str | None) -> str:
+    normalized = (urgency or "").strip().lower()
+    return normalized if normalized in {"low", "medium", "high"} else "medium"
+
+
+def ensure_unique_ticket_id(ticket_id: str | None, existing_tickets: list[dict]) -> str:
+    candidate = (ticket_id or "").strip()
+    existing_ids = {entry.get("saved_id") for entry in existing_tickets}
+
+    if not candidate:
+        candidate = f"TKT-{uuid4().hex[:8].upper()}"
+
+    if candidate in existing_ids:
+        candidate = f"{candidate}-{uuid4().hex[:4].upper()}"
+
+    return candidate
+
+
 def urgency_badge_html(urgency: str) -> str:
-    urgency = (urgency or "").lower()
+    urgency = normalize_urgency(urgency)
     css_class = {
         "low": "badge-low",
         "medium": "badge-medium",
@@ -333,8 +354,14 @@ if submitted:
                 result = asyncio.run(run_workflow(WorkflowInput(input_as_text=message.strip())))
 
             if result.get("ticket"):
+                result["ticket"]["urgency"] = normalize_urgency(result["ticket"].get("urgency"))
+                normalized_ticket_id = ensure_unique_ticket_id(
+                    result["ticket"].get("ticketId"), st.session_state.tickets
+                )
+                result["ticket"]["ticketId"] = normalized_ticket_id
+
                 saved_entry = {
-                    "saved_id": result["ticket"]["ticketId"],
+                    "saved_id": normalized_ticket_id,
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "message": message.strip(),
                     "classification": result["classification"],
