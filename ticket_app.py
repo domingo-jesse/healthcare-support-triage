@@ -457,6 +457,7 @@ OPEN_STATUSES = ("new", "in_progress", "blocked")
 
 
 def load_tickets() -> list[dict]:
+    # Defensive read: tolerate first-run and malformed local JSON.
     if not TICKETS_DB_PATH.exists():
         return []
     try:
@@ -469,6 +470,7 @@ def load_tickets() -> list[dict]:
 
 
 def save_tickets(tickets: list[dict]) -> None:
+    # Atomic write pattern to reduce risk of partial/corrupted ticket data.
     temp_path = TICKETS_DB_PATH.with_suffix(".tmp")
     temp_path.write_text(json.dumps(tickets, indent=2), encoding="utf-8")
     temp_path.replace(TICKETS_DB_PATH)
@@ -511,6 +513,7 @@ def load_deleted_tickets() -> list[dict]:
 
 
 def rank_tickets(tickets: list[dict]) -> list[dict]:
+    # Priority order: urgency first, then workflow status, then oldest first.
     return sorted(
         tickets,
         key=lambda t: (
@@ -543,6 +546,7 @@ def normalize_status(status: str | None) -> str:
 
 
 def ensure_unique_ticket_id(ticket_id: str | None, existing_tickets: list[dict]) -> str:
+    # Preserve model-proposed IDs when possible; append suffix on collision.
     candidate = (ticket_id or "").strip()
     existing_ids = {entry.get("saved_id") for entry in existing_tickets}
 
@@ -572,6 +576,7 @@ def classification_badge_html(classification: str) -> str:
 
 
 def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
+    # Best-effort parser for semi-structured agent text output sections.
     root_cause = ""
     next_steps = ""
     suggested_response = ""

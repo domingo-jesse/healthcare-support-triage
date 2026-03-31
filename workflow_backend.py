@@ -100,13 +100,23 @@ Keep it concise and practical.
 
 
 class WorkflowInput(BaseModel):
+    """Input payload for the triage workflow."""
+
     input_as_text: str
 
 
 async def run_workflow(workflow_input: WorkflowInput):
+    """Run the end-to-end triage workflow.
+
+    Flow:
+    1. Classify the incoming message as a real ticket or spam.
+    2. If ticket, generate structured ticket metadata and a support resolution.
+    3. If spam, generate a short explanation for why it should be ignored.
+    """
     with trace("New agent"):
         workflow = workflow_input.model_dump()
 
+        # Keep a unified transcript so every downstream agent sees prior context.
         conversation_history: list[TResponseInputItem] = [
             {
                 "role": "user",
@@ -139,6 +149,7 @@ async def run_workflow(workflow_input: WorkflowInput):
             "output_parsed": classifier_result_temp.final_output.model_dump(),
         }
 
+        # Ticket path: enrich with structured metadata + actionable resolution.
         if classifier_result["output_parsed"]["classification"] == "ticket":
             ticket_agent_result_temp = await Runner.run(
                 ticket_agent,
@@ -185,6 +196,7 @@ async def run_workflow(workflow_input: WorkflowInput):
                 "resolution": resolution_agent_result["output_text"],
             }
 
+        # Spam path: skip ticket generation and provide a concise rationale.
         spam_agent_result_temp = await Runner.run(
             spam_agent,
             input=[*conversation_history],
