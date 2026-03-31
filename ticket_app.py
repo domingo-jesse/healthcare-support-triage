@@ -184,28 +184,28 @@ st.markdown(
             color: var(--ticket-selected-text, var(--ticket-text, var(--text-primary))) !important;
         }
         .queue-ticket-button.urgency-high {
-            --ticket-bg: #ffffff;
-            --ticket-text: var(--text-primary);
-            --ticket-border: var(--border);
-            --ticket-selected-bg: #fee2e2;
+            --ticket-bg: #fee2e2;
+            --ticket-text: #7f1d1d;
+            --ticket-border: #fecaca;
+            --ticket-selected-bg: #fecaca;
             --ticket-selected-text: #7f1d1d;
             --ticket-ring: #dc2626;
             --ticket-ring-soft: rgba(220, 38, 38, 0.28);
         }
         .queue-ticket-button.urgency-medium {
-            --ticket-bg: #ffffff;
-            --ticket-text: var(--text-primary);
-            --ticket-border: var(--border);
-            --ticket-selected-bg: #fef3c7;
+            --ticket-bg: #fef3c7;
+            --ticket-text: #78350f;
+            --ticket-border: #fde68a;
+            --ticket-selected-bg: #fde68a;
             --ticket-selected-text: #78350f;
             --ticket-ring: #d97706;
             --ticket-ring-soft: rgba(217, 119, 6, 0.28);
         }
         .queue-ticket-button.urgency-low {
-            --ticket-bg: #ffffff;
-            --ticket-text: var(--text-primary);
-            --ticket-border: var(--border);
-            --ticket-selected-bg: #dbeafe;
+            --ticket-bg: #dbeafe;
+            --ticket-text: #1e3a8a;
+            --ticket-border: #bfdbfe;
+            --ticket-selected-bg: #bfdbfe;
             --ticket-selected-text: #1e3a8a;
             --ticket-ring: #2563eb;
             --ticket-ring-soft: rgba(37, 99, 235, 0.28);
