@@ -1,4 +1,5 @@
 import asyncio
+import html
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -161,6 +162,14 @@ def rank_tickets(tickets: list[dict]) -> list[dict]:
     )
 
 
+def get_open_tickets(tickets: list[dict]) -> list[dict]:
+    return [ticket for ticket in tickets if ticket.get("status", "open") == "open"]
+
+
+def get_completed_tickets(tickets: list[dict]) -> list[dict]:
+    return [ticket for ticket in tickets if ticket.get("status") == "completed"]
+
+
 URGENCY_SCORES = {
     "high": 100,
     "medium": 60,
@@ -232,11 +241,17 @@ def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
     return root_cause.strip(), next_steps.strip(), suggested_response.strip()
 
 
-def render_result(result: dict) -> None:
+def render_result(result: dict, submitted_request: str = "") -> None:
     left, right = st.columns([1, 1.2], gap="large")
 
     with left:
         st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
+        if submitted_request:
+            st.markdown('<div class="section-label">Submitted Request</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="response-box">{html.escape(submitted_request)}</div>',
+                unsafe_allow_html=True,
+            )
         st.markdown('<div class="metric-label">Classification</div>', unsafe_allow_html=True)
         st.markdown(
             f'<div class="metric-value">{result["classification"].upper()}</div>',
@@ -321,20 +336,39 @@ with st.sidebar:
         st.session_state.message_input = EXAMPLES[example_choice]
 
     st.divider()
-    st.subheader("Ranked Tickets")
+    st.subheader("Queue")
 
-    ranked = rank_tickets(st.session_state.tickets)
-    if ranked:
+    queue_tickets = rank_tickets(get_open_tickets(st.session_state.tickets))
+    if queue_tickets:
         labels = [
             f"{idx + 1}. [{(entry.get('ticket') or {}).get('urgency', 'medium').upper()}] "
             f"{(entry.get('ticket') or {}).get('title', 'No title')}"
-            for idx, entry in enumerate(ranked)
+            for idx, entry in enumerate(queue_tickets)
         ]
         selected_label = st.radio("Open saved ticket", labels, key="selected_ticket_label")
         selected_index = labels.index(selected_label)
-        st.session_state.selected_ticket_id = ranked[selected_index].get("saved_id")
+        st.session_state.selected_ticket_id = queue_tickets[selected_index].get("saved_id")
     else:
-        st.caption("No saved tickets yet.")
+        st.caption("No tickets in the queue.")
+
+    completed_tickets = rank_tickets(get_completed_tickets(st.session_state.tickets))
+    st.divider()
+    st.subheader("Completed Tasks")
+    if completed_tickets:
+        completed_labels = [
+            f"{idx + 1}. [{(entry.get('ticket') or {}).get('urgency', 'medium').upper()}] "
+            f"{(entry.get('ticket') or {}).get('title', 'No title')}"
+            for idx, entry in enumerate(completed_tickets)
+        ]
+        completed_selected_label = st.radio(
+            "Open completed ticket", completed_labels, key="selected_completed_ticket_label"
+        )
+        completed_selected_index = completed_labels.index(completed_selected_label)
+        st.session_state.selected_ticket_id = completed_tickets[completed_selected_index].get(
+            "saved_id"
+        )
+    else:
+        st.caption("No completed tasks yet.")
 
 with st.form("triage_form", clear_on_submit=True):
     message = st.text_area(
@@ -363,6 +397,7 @@ if submitted:
                 saved_entry = {
                     "saved_id": normalized_ticket_id,
                     "created_at": datetime.now(timezone.utc).isoformat(),
+                    "status": "open",
                     "message": message.strip(),
                     "classification": result["classification"],
                     "ticket": result["ticket"],
@@ -373,7 +408,7 @@ if submitted:
                 st.session_state.selected_ticket_id = saved_entry["saved_id"]
 
             st.success("Analysis complete")
-            render_result(result)
+            render_result(result, submitted_request=message.strip())
         except Exception as e:
             st.error(f"Error: {e}")
 elif st.session_state.selected_ticket_id:
@@ -389,10 +424,20 @@ elif st.session_state.selected_ticket_id:
         st.info(
             f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}"
         )
+        selected_status = selected.get("status", "open")
+        if selected_status == "open":
+            if st.button("Resolve ticket", type="primary"):
+                selected["status"] = "completed"
+                save_tickets(st.session_state.tickets)
+                st.success("Ticket resolved and moved to Completed Tasks.")
+                st.rerun()
+        else:
+            st.caption("This ticket is completed.")
         render_result(
             {
                 "classification": selected.get("classification", "ticket"),
                 "ticket": selected.get("ticket"),
                 "resolution": selected.get("resolution", ""),
-            }
+            },
+            submitted_request=selected.get("message", ""),
         )
