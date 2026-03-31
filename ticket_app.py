@@ -70,9 +70,9 @@ st.markdown(
             background: var(--card-gradient);
             border: 1px solid var(--border);
             border-radius: 14px;
-            padding: 1.25rem 1.25rem 1rem 1.25rem;
+            padding: 0.95rem 1rem 0.8rem 1rem;
             box-shadow: var(--shadow);
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
         .card h3 {
             margin-top: 0;
@@ -113,24 +113,24 @@ st.markdown(
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            margin-top: 1rem;
+            margin-top: 0.7rem;
             margin-bottom: 0.35rem;
         }
         .response-box {
             background: var(--bg-tertiary);
             border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 1rem;
+            border-radius: 12px;
+            padding: 0.7rem 0.8rem;
             white-space: pre-wrap;
-            line-height: 1.55;
+            line-height: 1.45;
             color: var(--text-primary);
         }
         .overview-row-box {
             border: 1px solid var(--border);
             border-radius: 12px;
             background: var(--bg-secondary);
-            padding: 0.75rem;
-            margin-top: 0.6rem;
+            padding: 0.6rem;
+            margin-top: 0.4rem;
             box-shadow: var(--shadow);
         }
         .overview-row-grid {
@@ -146,7 +146,10 @@ st.markdown(
         .overview-row-item .metric-value,
         .overview-row-item .ticket-title {
             margin: 0;
-            font-size: 0.98rem;
+            font-size: 0.93rem;
+        }
+        .overview-submitted-request {
+            margin-top: 0.5rem;
         }
         div[data-testid="stTextArea"] textarea {
             border-radius: 12px;
@@ -241,7 +244,7 @@ st.markdown(
             border: 1px solid var(--border);
             border-radius: 12px;
             background: var(--bg-secondary);
-            padding: 0.55rem 0.65rem;
+            padding: 0.45rem 0.55rem;
             box-shadow: var(--shadow);
         }
         .stat-label { font-size: 0.74rem; color: var(--text-muted); }
@@ -283,8 +286,53 @@ st.markdown(
         .mini-note {
             font-size: 0.8rem;
             color: var(--text-muted);
-            margin-top: 0.3rem;
-            margin-bottom: 0.65rem;
+            margin-top: 0.2rem;
+            margin-bottom: 0.45rem;
+        }
+        .queue-item-row {
+            display: flex;
+            gap: 0.4rem;
+            align-items: stretch;
+            margin: 0.35rem 0;
+        }
+        .queue-urgency-box {
+            flex: 1;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.45rem 0.55rem;
+            line-height: 1.2;
+            background: rgba(15, 23, 42, 0.02);
+        }
+        .queue-urgency-box.high {
+            background: rgba(239, 68, 68, 0.14);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .queue-urgency-box.medium {
+            background: rgba(251, 191, 36, 0.14);
+            border-color: rgba(251, 191, 36, 0.3);
+        }
+        .queue-urgency-box.low {
+            background: rgba(59, 130, 246, 0.12);
+            border-color: rgba(59, 130, 246, 0.28);
+        }
+        .queue-urgency-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.12rem;
+        }
+        .queue-urgency-meta {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+        .queue-open-button {
+            min-width: 56px;
+        }
+        .queue-open-button div[data-testid="stButton"] > button {
+            height: 100%;
+            min-height: 52px;
+            font-size: 0.74rem;
+            padding: 0.25rem 0.5rem;
         }
         .queue-table {
             border: 1px solid var(--border);
@@ -484,12 +532,6 @@ def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
 
 def render_result(result: dict, submitted_request: str = "") -> None:
     st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
-    if submitted_request:
-        st.markdown('<div class="section-label">Submitted Request</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="response-box">{html.escape(submitted_request)}</div>',
-            unsafe_allow_html=True,
-        )
     ticket = result.get("ticket") or {}
     st.markdown(
         f"""
@@ -520,6 +562,15 @@ def render_result(result: dict, submitted_request: str = "") -> None:
         """,
         unsafe_allow_html=True,
     )
+    if submitted_request:
+        st.markdown(
+            '<div class="overview-submitted-request"><div class="section-label">Submitted Request</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<div class="response-box">{html.escape(submitted_request)}</div>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -624,17 +675,32 @@ with left_col:
         ticket_status = normalize_status(ticket.get("status"))
         classification = (ticket.get("classification") or "ticket").strip().lower()
         classification_label = "SPAM" if classification == "spam" else "TICKET"
-        queue_label = (
-            f"[{classification_label}] {title}\n{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}"
+        urgency_label = urgency.upper()
+        queue_title = html.escape(f"[{classification_label}] {title}")
+        queue_meta = html.escape(f"{urgency_label} · {STATUS_LABELS[ticket_status]} · {created_display}")
+        st.markdown(
+            f"""
+            <div class="queue-item-row">
+              <div class="queue-urgency-box {urgency}">
+                <div class="queue-urgency-title">{queue_title}</div>
+                <div class="queue-urgency-meta">{queue_meta}</div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-        if st.button(
-            queue_label,
-            key=f"queue_open_{ticket_id}",
-            use_container_width=True,
-            help=f"Ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-        ):
-            st.session_state.selected_ticket_id = ticket_id
-            st.rerun()
+        open_col, _ = st.columns([0.2, 0.8], gap="small")
+        with open_col:
+            st.markdown('<div class="queue-open-button">', unsafe_allow_html=True)
+            if st.button(
+                "Open",
+                key=f"queue_open_{ticket_id}",
+                use_container_width=True,
+                help=f"Ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
+            ):
+                st.session_state.selected_ticket_id = ticket_id
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
