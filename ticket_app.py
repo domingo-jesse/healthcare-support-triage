@@ -163,6 +163,9 @@ st.markdown(
             min-width: 420px;
             max-width: 420px;
         }
+        section[data-testid="stSidebar"] .block-container {
+            padding-top: 1rem;
+        }
         .urgency-ticket-card {
             border: 1px solid var(--border);
             border-radius: 12px;
