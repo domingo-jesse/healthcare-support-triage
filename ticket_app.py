@@ -435,6 +435,7 @@ st.markdown(
 )
 
 TICKETS_DB_PATH = Path(__file__).parent / "tickets_store.json"
+CLOSED_TICKETS_DB_PATH = Path(__file__).parent / "closed_tickets_store.json"
 URGENCY_RANK = {"high": 0, "medium": 1, "low": 2}
 STATUS_STAGES = ("new", "in_progress", "blocked", "completed")
 STATUS_LABELS = {
@@ -463,6 +464,24 @@ def save_tickets(tickets: list[dict]) -> None:
     temp_path = TICKETS_DB_PATH.with_suffix(".tmp")
     temp_path.write_text(json.dumps(tickets, indent=2), encoding="utf-8")
     temp_path.replace(TICKETS_DB_PATH)
+
+
+def save_closed_tickets(tickets: list[dict]) -> None:
+    temp_path = CLOSED_TICKETS_DB_PATH.with_suffix(".tmp")
+    temp_path.write_text(json.dumps(tickets, indent=2), encoding="utf-8")
+    temp_path.replace(CLOSED_TICKETS_DB_PATH)
+
+
+def load_closed_tickets() -> list[dict]:
+    if not CLOSED_TICKETS_DB_PATH.exists():
+        return []
+    try:
+        data = json.loads(CLOSED_TICKETS_DB_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return [entry for entry in data if isinstance(entry, dict)]
+    except (json.JSONDecodeError, OSError):
+        return []
+    return []
 
 
 def rank_tickets(tickets: list[dict]) -> list[dict]:
@@ -662,16 +681,37 @@ def render_empty_result_placeholder() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-if "tickets" not in st.session_state:
-    st.session_state.tickets = load_tickets()
-    for entry in st.session_state.tickets:
+def persist_ticket_state() -> None:
+    save_tickets(st.session_state.open_tickets)
+    save_closed_tickets(st.session_state.closed_tickets)
+
+
+if "open_tickets" not in st.session_state:
+    st.session_state.open_tickets = load_tickets()
+    for entry in st.session_state.open_tickets:
         entry["status"] = normalize_status(entry.get("status"))
+if "closed_tickets" not in st.session_state:
+    st.session_state.closed_tickets = load_closed_tickets()
+    for entry in st.session_state.closed_tickets:
+        entry["status"] = "completed"
 if "selected_ticket_id" not in st.session_state:
     st.session_state.selected_ticket_id = None
 if "message_input" not in st.session_state:
     st.session_state.message_input = ""
-if "queue_stat_focus" not in st.session_state:
-    st.session_state.queue_stat_focus = "all"
+
+# Migration support: move completed tickets from open storage into archive storage.
+migrated_open_tickets = []
+migrated_closed_tickets = list(st.session_state.closed_tickets)
+for ticket in st.session_state.open_tickets:
+    if normalize_status(ticket.get("status")) == "completed":
+        ticket["status"] = "completed"
+        migrated_closed_tickets.append(ticket)
+    else:
+        ticket["status"] = normalize_status(ticket.get("status"))
+        migrated_open_tickets.append(ticket)
+st.session_state.open_tickets = migrated_open_tickets
+st.session_state.closed_tickets = migrated_closed_tickets
+persist_ticket_state()
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
@@ -679,139 +719,33 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-all_tickets = list(st.session_state.tickets)
-for ticket in all_tickets:
-    ticket["status"] = normalize_status(ticket.get("status"))
-filtered_tickets = rank_tickets(all_tickets)
-open_tickets = [ticket for ticket in filtered_tickets if normalize_status(ticket.get("status")) in OPEN_STATUSES]
-closed_tickets = [ticket for ticket in filtered_tickets if normalize_status(ticket.get("status")) == "completed"]
-
-status_counts = {status: 0 for status in STATUS_STAGES}
-for ticket in filtered_tickets:
-    status_counts[normalize_status(ticket.get("status"))] += 1
+open_tickets = rank_tickets(list(st.session_state.open_tickets))
+closed_tickets = rank_tickets(list(st.session_state.closed_tickets))
+all_tickets = open_tickets + closed_tickets
 
 left_col, middle_col, right_col = st.columns([1.2, 1.25, 1.55], gap="large")
 
 with left_col:
-    st.markdown('<div class="three-col-header">📊 Queue stats</div>', unsafe_allow_html=True)
-    high_urgency_count = sum(
-        1
-        for t in filtered_tickets
-        if normalize_urgency((t.get("ticket") or {}).get("urgency")) == "high"
-    )
-    queue_stat_items = [
-        ("total", "Total Tickets", len(filtered_tickets)),
-        ("open", "Open Queue", len(open_tickets)),
-        ("closed", "Completed/Closed", len(closed_tickets)),
-        ("high", "High Urgency", high_urgency_count),
-    ]
-    for stat_key, stat_label, stat_value in queue_stat_items:
-        if st.button(
-            f"{stat_label}\n{stat_value}",
-            key=f"queue_stat_{stat_key}",
-            use_container_width=True,
-        ):
-            st.session_state.queue_stat_focus = stat_key
-            st.rerun()
-
-    st.markdown('<div class="three-col-header">🎫 Queues</div>', unsafe_allow_html=True)
-    st.caption(f"{len(filtered_tickets)} total ticket(s)")
-
-    queue_views = {
-        "all": "All tickets",
-        "open": "Open tickets only",
-        "closed": "Closed tickets only",
-        "high": "High urgency only",
-    }
-    selected_queue_view = st.selectbox(
-        "Queue scope",
-        options=list(queue_views.keys()),
-        index=list(queue_views.keys()).index(st.session_state.queue_stat_focus),
-        format_func=lambda opt: queue_views[opt],
-        key="queue_scope_select",
-    )
-    if selected_queue_view != st.session_state.queue_stat_focus:
-        st.session_state.queue_stat_focus = selected_queue_view
-        st.rerun()
-
-    queue_sort_option = st.selectbox(
-        "Queue sort",
-        options=("urgency", "newest", "oldest"),
-        format_func=lambda opt: {
-            "urgency": "Urgency",
-            "newest": "Newest first",
-            "oldest": "Oldest first",
-        }[opt],
-        key="queue_sort_select",
-    )
-    queue_search_text = st.text_input(
-        "Search tickets",
-        placeholder="Search by ticket number or title",
-        key="queue_search_input",
-    ).strip()
-
-    if not filtered_tickets:
-        st.caption("No tickets match the current queue.")
+    st.markdown('<div class="three-col-header">🎫 Ticket queues</div>', unsafe_allow_html=True)
+    st.caption(f"{len(open_tickets)} open · {len(closed_tickets)} archived")
 
     urgency_icons = {"high": "🟥", "medium": "🟨", "low": "🟦"}
     urgency_labels = {"high": "High", "medium": "Medium", "low": "Low"}
+    grouped_open_tickets = {
+        level: [t for t in open_tickets if normalize_urgency((t.get("ticket") or {}).get("urgency")) == level]
+        for level in ("high", "medium", "low")
+    }
 
-    def apply_queue_filters(tickets: list[dict]) -> list[dict]:
-        scoped = list(tickets)
-        focus = st.session_state.queue_stat_focus
-        if focus == "open":
-            scoped = [ticket for ticket in scoped if normalize_status(ticket.get("status")) in OPEN_STATUSES]
-        elif focus == "closed":
-            scoped = [ticket for ticket in scoped if normalize_status(ticket.get("status")) == "completed"]
-        elif focus == "high":
-            scoped = [
-                ticket
-                for ticket in scoped
-                if normalize_urgency((ticket.get("ticket") or {}).get("urgency")) == "high"
-            ]
-
-        if queue_search_text:
-            query = queue_search_text.lower()
-            scoped = [
-                ticket
-                for ticket in scoped
-                if query in ticket.get("saved_id", "").lower()
-                or query in ((ticket.get("ticket") or {}).get("title", "").lower())
-            ]
-
-        if queue_sort_option == "newest":
-            scoped = sorted(scoped, key=lambda t: t.get("created_at", ""), reverse=True)
-        elif queue_sort_option == "oldest":
-            scoped = sorted(scoped, key=lambda t: t.get("created_at", ""))
-        else:
-            scoped = sorted(
-                scoped,
-                key=lambda t: (
-                    URGENCY_RANK.get(
-                        normalize_urgency((t.get("ticket") or {}).get("urgency")),
-                        1,
-                    ),
-                    t.get("created_at", ""),
-                ),
-            )
-        return scoped
-
-    def render_queue_section(section_key: str, section_title: str, tickets: list[dict]) -> None:
-        filtered_section_tickets = apply_queue_filters(tickets)
-        st.markdown(f"#### {section_title} ({len(tickets)})")
-        if not filtered_section_tickets:
-            st.caption("No tickets in this queue.")
+    def render_ticket_buttons(section_key: str, tickets: list[dict]) -> None:
+        if not tickets:
+            st.caption("No tickets in this section.")
             return
-
-        for ticket in filtered_section_tickets:
+        for ticket in tickets:
             ticket_id = ticket.get("saved_id", "")
             title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
             urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
             queue_title = f"{urgency_icons[urgency]} [{urgency_labels[urgency]}] {title}"
-            st.markdown(
-                f'<div class="queue-item-row queue-ticket-button {urgency}">',
-                unsafe_allow_html=True,
-            )
+            st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
             if st.button(
                 queue_title,
                 key=f"queue_{section_key}_{ticket_id}",
@@ -822,12 +756,17 @@ with left_col:
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.container(height=640, border=False):
-        with st.expander("🟢 Open Queue", expanded=True):
-            render_queue_section("open", "Open tickets", open_tickets)
-        st.markdown("---")
-        with st.expander("✅ Completed/Closed Queue", expanded=True):
-            render_queue_section("closed", "Closed tickets", closed_tickets)
+    open_tab, archive_tab = st.tabs(["🟢 Open Queue", "📦 Archive"])
+    with open_tab:
+        with st.container(height=640, border=False):
+            st.markdown("#### Ranked by urgency")
+            for urgency_level in ("high", "medium", "low"):
+                st.markdown(f"##### {urgency_labels[urgency_level]} ({len(grouped_open_tickets[urgency_level])})")
+                render_ticket_buttons(f"open_{urgency_level}", grouped_open_tickets[urgency_level])
+    with archive_tab:
+        with st.container(height=640, border=False):
+            st.markdown("#### Closed tickets")
+            render_ticket_buttons("archive", closed_tickets)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
@@ -836,7 +775,7 @@ with middle_col:
             selected = next(
                 (
                     entry
-                    for entry in st.session_state.tickets
+                    for entry in all_tickets
                     if entry.get("saved_id") == st.session_state.selected_ticket_id
                 ),
                 None,
@@ -863,7 +802,29 @@ with middle_col:
                 if urgency_choice != current_urgency or progress_choice != current_status:
                     selected_ticket["urgency"] = urgency_choice
                     selected["status"] = progress_choice
-                    save_tickets(st.session_state.tickets)
+                    if progress_choice == "completed":
+                        st.session_state.open_tickets = [
+                            t
+                            for t in st.session_state.open_tickets
+                            if t.get("saved_id") != selected.get("saved_id")
+                        ]
+                        if not any(
+                            t.get("saved_id") == selected.get("saved_id")
+                            for t in st.session_state.closed_tickets
+                        ):
+                            st.session_state.closed_tickets.append(selected)
+                    else:
+                        st.session_state.closed_tickets = [
+                            t
+                            for t in st.session_state.closed_tickets
+                            if t.get("saved_id") != selected.get("saved_id")
+                        ]
+                        if not any(
+                            t.get("saved_id") == selected.get("saved_id")
+                            for t in st.session_state.open_tickets
+                        ):
+                            st.session_state.open_tickets.append(selected)
+                    persist_ticket_state()
                     st.rerun()
             else:
                 render_empty_result_placeholder()
@@ -903,7 +864,8 @@ if submitted:
                 }
 
             normalized_ticket_id = ensure_unique_ticket_id(
-                ticket_data.get("ticketId"), st.session_state.tickets
+                ticket_data.get("ticketId"),
+                st.session_state.open_tickets + st.session_state.closed_tickets,
             )
             ticket_data["ticketId"] = normalized_ticket_id
 
@@ -916,8 +878,8 @@ if submitted:
                 "ticket": ticket_data,
                 "resolution": result["resolution"],
             }
-            st.session_state.tickets.append(saved_entry)
-            save_tickets(st.session_state.tickets)
+            st.session_state.open_tickets.append(saved_entry)
+            persist_ticket_state()
             st.session_state.selected_ticket_id = saved_entry["saved_id"]
 
             st.success("Analysis complete")
