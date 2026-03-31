@@ -563,35 +563,47 @@ def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
 def render_result(result: dict, submitted_request: str = "") -> None:
     st.markdown('<div class="card card-overview"><h3>📌 Overview</h3>', unsafe_allow_html=True)
     ticket = result.get("ticket") or {}
-    st.markdown(
-        f"""
-        <div class="overview-row-box">
-          <div class="overview-row-grid">
-            <div class="overview-row-item">
-              <div class="section-label">Classification</div>
-              {classification_badge_html(result.get("classification", "ticket"))}
-            </div>
-            <div class="overview-row-item">
-              <div class="section-label">Ticket</div>
-              <div class="metric-value">TICKET</div>
-            </div>
-            <div class="overview-row-item">
-              <div class="section-label">Ticket ID</div>
-              <div class="metric-value">{html.escape(ticket.get("ticketId", "N/A"))}</div>
-            </div>
-            <div class="overview-row-item">
-              <div class="section-label">Title</div>
-              <div class="ticket-title">{html.escape(ticket.get("title", "Untitled ticket"))}</div>
-            </div>
-            <div class="overview-row-item">
-              <div class="section-label">Urgency</div>
-              {urgency_badge_html(ticket.get("urgency", "medium"))}
-            </div>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown('<div class="overview-row-box">', unsafe_allow_html=True)
+    col_classification, col_ticket_id, col_title, col_urgency, col_completed = st.columns(5)
+    with col_classification:
+        st.markdown('<div class="section-label">Classification</div>', unsafe_allow_html=True)
+        st.markdown(
+            classification_badge_html(result.get("classification", "ticket")),
+            unsafe_allow_html=True,
+        )
+    with col_ticket_id:
+        st.markdown('<div class="section-label">Ticket ID</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-value">{html.escape(ticket.get("ticketId", "N/A"))}</div>',
+            unsafe_allow_html=True,
+        )
+    with col_title:
+        st.markdown('<div class="section-label">Title</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="ticket-title">{html.escape(ticket.get("title", "Untitled ticket"))}</div>',
+            unsafe_allow_html=True,
+        )
+    with col_urgency:
+        st.markdown('<div class="section-label">Urgency</div>', unsafe_allow_html=True)
+        urgency_value = normalize_urgency(ticket.get("urgency"))
+        st.selectbox(
+            "Urgency",
+            options=["low", "medium", "high"],
+            index=["low", "medium", "high"].index(urgency_value),
+            key=f"overview_urgency_{ticket.get('ticketId', 'unknown')}",
+            label_visibility="collapsed",
+        )
+    with col_completed:
+        st.markdown('<div class="section-label">Completed</div>', unsafe_allow_html=True)
+        completed = normalize_status(result.get("status")) == "completed"
+        st.selectbox(
+            "Completed",
+            options=["No", "Yes"],
+            index=1 if completed else 0,
+            key=f"overview_completed_{ticket.get('ticketId', 'unknown')}",
+            label_visibility="collapsed",
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
     if submitted_request:
         st.markdown(
             '<div class="overview-submitted-request"><div class="section-label">Submitted Request</div></div>',
