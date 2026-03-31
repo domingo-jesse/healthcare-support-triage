@@ -443,6 +443,7 @@ STATUS_LABELS = {
     "blocked": "Blocked",
     "completed": "Completed",
 }
+PROGRESS_OPTIONS = ("in_progress", "blocked", "completed")
 
 
 def load_tickets() -> list[dict]:
@@ -740,13 +741,47 @@ with middle_col:
             None,
         )
         if selected:
+            selected_ticket = selected.get("ticket") or {}
+            current_urgency = normalize_urgency(selected_ticket.get("urgency"))
+            current_status = normalize_status(selected.get("status"))
             st.info(
                 f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}"
             )
+            control_col_1, control_col_2 = st.columns(2, gap="small")
+
+            with control_col_1:
+                urgency_choice = st.selectbox(
+                    "Urgency",
+                    options=("low", "medium", "high"),
+                    index=("low", "medium", "high").index(current_urgency),
+                    format_func=lambda value: value.title(),
+                    key=f"selected_urgency_{selected.get('saved_id')}",
+                )
+                if urgency_choice != current_urgency:
+                    selected_ticket["urgency"] = urgency_choice
+                    save_tickets(st.session_state.tickets)
+                    st.rerun()
+
+            with control_col_2:
+                default_progress = (
+                    current_status if current_status in PROGRESS_OPTIONS else "in_progress"
+                )
+                progress_choice = st.selectbox(
+                    "Progress",
+                    options=PROGRESS_OPTIONS,
+                    index=PROGRESS_OPTIONS.index(default_progress),
+                    format_func=lambda value: STATUS_LABELS[value],
+                    key=f"selected_progress_{selected.get('saved_id')}",
+                )
+                if progress_choice != current_status:
+                    selected["status"] = progress_choice
+                    save_tickets(st.session_state.tickets)
+                    st.rerun()
+
             render_result(
                 {
                     "classification": selected.get("classification", "ticket"),
-                    "ticket": selected.get("ticket"),
+                    "ticket": selected_ticket,
                     "resolution": selected.get("resolution", ""),
                 },
                 submitted_request=selected.get("message", ""),
