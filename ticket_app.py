@@ -796,8 +796,9 @@ with left_col:
         if not tickets:
             st.caption("No tickets in this section.")
             return
-        for ticket in tickets:
+        for idx, ticket in enumerate(tickets):
             ticket_id = ticket.get("saved_id", "")
+            widget_suffix = ticket_id or f"idx_{idx}"
             title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
             urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
             queue_title = f"{urgency_icons[urgency]} {title}"
@@ -806,7 +807,7 @@ with left_col:
                 st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
                 if st.button(
                     queue_title,
-                    key=f"queue_{section_key}_{ticket_id}",
+                    key=f"queue_{section_key}_{widget_suffix}",
                     use_container_width=True,
                     help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
                 ):
@@ -817,7 +818,7 @@ with left_col:
                 st.markdown('<div class="queue-item-row queue-archive-btn">', unsafe_allow_html=True)
                 if enable_archive and st.button(
                     "🗑️",
-                    key=f"archive_{section_key}_{ticket_id}",
+                    key=f"archive_{section_key}_{widget_suffix}",
                     use_container_width=True,
                     help="Archive this ticket",
                 ):
@@ -849,8 +850,9 @@ with left_col:
             st.markdown("#### Deleted and spam tickets")
             if not deleted_tickets:
                 st.caption("No deleted/spam tickets.")
-            for ticket in deleted_tickets:
+            for idx, ticket in enumerate(deleted_tickets):
                 ticket_id = ticket.get("saved_id", "")
+                widget_suffix = ticket_id or f"idx_{idx}"
                 title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
                 urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
                 queue_title = f"{urgency_icons[urgency]} {title}"
@@ -859,7 +861,7 @@ with left_col:
                     st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
                     if st.button(
                         queue_title,
-                        key=f"queue_deleted_{ticket_id}",
+                        key=f"queue_deleted_{widget_suffix}",
                         use_container_width=True,
                         help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
                     ):
@@ -870,7 +872,7 @@ with left_col:
                     st.markdown('<div class="queue-item-row queue-archive-btn">', unsafe_allow_html=True)
                     if st.button(
                         "📦",
-                        key=f"restore_deleted_{ticket_id}",
+                        key=f"restore_deleted_{widget_suffix}",
                         use_container_width=True,
                         help="Archive this deleted/spam ticket",
                     ):
