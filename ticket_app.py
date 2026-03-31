@@ -30,7 +30,9 @@ st.markdown(
             --accent: #2f7df4;
             --accent-soft: #eaf2ff;
             --accent-danger: #ef4444;
-            --card-gradient: linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
+            --card-gradient: linear-gradient(155deg, #ffffff 0%, #f7faff 100%);
+            --overview-gradient: linear-gradient(155deg, #ffffff 0%, #eef5ff 100%);
+            --resolution-gradient: linear-gradient(155deg, #ffffff 0%, #f2f8ff 100%);
         }
         .main, .stApp {
             background: var(--bg-primary);
@@ -73,6 +75,12 @@ st.markdown(
             padding: 0.95rem 1rem 0.8rem 1rem;
             box-shadow: var(--shadow);
             margin-bottom: 0.75rem;
+        }
+        .card-overview {
+            background: var(--overview-gradient);
+        }
+        .card-resolution {
+            background: var(--resolution-gradient);
         }
         .card h3 {
             margin-top: 0;
@@ -290,13 +298,14 @@ st.markdown(
             margin-bottom: 0.45rem;
         }
         .queue-item-row {
-            display: flex;
-            gap: 0.4rem;
-            align-items: stretch;
             margin: 0.35rem 0;
         }
+        .queue-scroll-wrap {
+            max-height: 72vh;
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
         .queue-urgency-box {
-            flex: 1;
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 0.45rem 0.55rem;
@@ -325,14 +334,30 @@ st.markdown(
             font-size: 0.72rem;
             color: var(--text-muted);
         }
-        .queue-open-button {
-            min-width: 56px;
+        .queue-ticket-button div[data-testid="stButton"] > button {
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            min-height: 58px;
+            padding: 0.45rem 0.55rem;
+            text-align: left;
+            font-size: 0.8rem;
+            background: rgba(15, 23, 42, 0.02);
         }
-        .queue-open-button div[data-testid="stButton"] > button {
-            height: 100%;
-            min-height: 52px;
-            font-size: 0.74rem;
-            padding: 0.25rem 0.5rem;
+        .queue-ticket-button.high div[data-testid="stButton"] > button {
+            background: linear-gradient(145deg, rgba(254, 226, 226, 0.95) 0%, rgba(252, 165, 165, 0.24) 100%);
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+        .queue-ticket-button.medium div[data-testid="stButton"] > button {
+            background: linear-gradient(145deg, rgba(254, 243, 199, 0.98) 0%, rgba(252, 211, 77, 0.2) 100%);
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+        .queue-ticket-button.low div[data-testid="stButton"] > button {
+            background: linear-gradient(145deg, rgba(219, 234, 254, 0.98) 0%, rgba(147, 197, 253, 0.2) 100%);
+            border-color: rgba(59, 130, 246, 0.33);
+        }
+        .queue-ticket-button div[data-testid="stButton"] > button:hover {
+            filter: brightness(0.98);
+            border-color: var(--accent);
         }
         .queue-table {
             border: 1px solid var(--border);
@@ -531,7 +556,7 @@ def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
 
 
 def render_result(result: dict, submitted_request: str = "") -> None:
-    st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
+    st.markdown('<div class="card card-overview"><h3>📌 Overview</h3>', unsafe_allow_html=True)
     ticket = result.get("ticket") or {}
     st.markdown(
         f"""
@@ -576,7 +601,7 @@ def render_result(result: dict, submitted_request: str = "") -> None:
 
     root_cause, next_steps, suggested_response = parse_resolution_text(result["resolution"])
 
-    st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
+    st.markdown('<div class="card card-resolution"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
 
     if root_cause:
         st.markdown('<div class="section-label">Likely Root Cause</div>', unsafe_allow_html=True)
@@ -605,7 +630,7 @@ def render_result(result: dict, submitted_request: str = "") -> None:
 
 
 def render_empty_result_placeholder() -> None:
-    st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
+    st.markdown('<div class="card card-overview"><h3>📌 Overview</h3>', unsafe_allow_html=True)
     st.caption("No ticket selected yet.")
     st.markdown(
         '<div class="mini-note">Choose a ticket from the queue or run a new triage search from the middle panel.</div>',
@@ -613,7 +638,7 @@ def render_empty_result_placeholder() -> None:
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
+    st.markdown('<div class="card card-resolution"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
     st.caption("Resolution output will appear here.")
     st.markdown(
         '<div class="mini-note">Overview appears first and the resolution appears underneath it in this middle panel.</div>',
@@ -667,6 +692,7 @@ with left_col:
     if not filtered_tickets:
         st.caption("No tickets match the current queue.")
 
+    st.markdown('<div class="queue-scroll-wrap">', unsafe_allow_html=True)
     for ticket in filtered_tickets:
         ticket_id = ticket.get("saved_id", "")
         urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
@@ -676,31 +702,19 @@ with left_col:
         classification = (ticket.get("classification") or "ticket").strip().lower()
         classification_label = "SPAM" if classification == "spam" else "TICKET"
         urgency_label = urgency.upper()
-        queue_title = html.escape(f"[{classification_label}] {title}")
-        queue_meta = html.escape(f"{urgency_label} · {STATUS_LABELS[ticket_status]} · {created_display}")
-        st.markdown(
-            f"""
-            <div class="queue-item-row">
-              <div class="queue-urgency-box {urgency}">
-                <div class="queue-urgency-title">{queue_title}</div>
-                <div class="queue-urgency-meta">{queue_meta}</div>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        open_col, _ = st.columns([0.2, 0.8], gap="small")
-        with open_col:
-            st.markdown('<div class="queue-open-button">', unsafe_allow_html=True)
-            if st.button(
-                "Open",
-                key=f"queue_open_{ticket_id}",
-                use_container_width=True,
-                help=f"Ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-            ):
-                st.session_state.selected_ticket_id = ticket_id
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+        queue_title = f"[{classification_label}] {title}"
+        queue_meta = f"{urgency_label} · {STATUS_LABELS[ticket_status]} · {created_display}"
+        st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
+        if st.button(
+            f"{queue_title}\n{queue_meta}",
+            key=f"queue_open_{ticket_id}",
+            use_container_width=True,
+            help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
+        ):
+            st.session_state.selected_ticket_id = ticket_id
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
