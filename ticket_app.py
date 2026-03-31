@@ -623,16 +623,21 @@ def render_result(
     submitted_request: str = "",
     default_urgency: str = "medium",
     default_status: str = "in_progress",
+    default_classification: str = "ticket",
     key_prefix: str = "overview",
-) -> tuple[str, str]:
+) -> tuple[str, str, str, str]:
     ticket = result.get("ticket") or {}
     st.markdown('<div class="overview-row-box"><div class="overview-row-grid">', unsafe_allow_html=True)
     col_classification, col_ticket_id, col_title, col_urgency, col_status = st.columns(5)
     with col_classification:
         st.markdown('<div class="section-label">Classification</div>', unsafe_allow_html=True)
-        st.markdown(
-            classification_badge_html(result.get("classification", "ticket")),
-            unsafe_allow_html=True,
+        selected_classification = st.selectbox(
+            "Classification",
+            options=["ticket", "spam"],
+            index=0 if default_classification == "ticket" else 1,
+            format_func=lambda classification: classification.upper(),
+            key=f"{key_prefix}_classification_{ticket.get('ticketId', 'unknown')}",
+            label_visibility="collapsed",
         )
     with col_ticket_id:
         st.markdown('<div class="section-label">Ticket ID</div>', unsafe_allow_html=True)
@@ -642,9 +647,11 @@ def render_result(
         )
     with col_title:
         st.markdown('<div class="section-label">Title</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="ticket-title">{html.escape(ticket.get("title", "Untitled ticket"))}</div>',
-            unsafe_allow_html=True,
+        edited_title = st.text_input(
+            "Title",
+            value=ticket.get("title", "Untitled ticket"),
+            key=f"{key_prefix}_title_{ticket.get('ticketId', 'unknown')}",
+            label_visibility="collapsed",
         )
     with col_urgency:
         st.markdown('<div class="section-label">Urgency</div>', unsafe_allow_html=True)
@@ -707,7 +714,7 @@ def render_result(
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    return selected_urgency, selected_status
+    return selected_urgency, selected_status, selected_classification, edited_title.strip()
 
 
 def render_empty_result_placeholder() -> None:
@@ -748,12 +755,12 @@ migrated_open_tickets = []
 migrated_closed_tickets = list(st.session_state.closed_tickets)
 migrated_deleted_tickets = list(st.session_state.deleted_tickets)
 for ticket in st.session_state.open_tickets:
-    if (ticket.get("classification") or "").strip().lower() == "spam":
-        ticket["status"] = "deleted"
-        migrated_deleted_tickets.append(ticket)
-    elif normalize_status(ticket.get("status")) == "completed":
+    if normalize_status(ticket.get("status")) == "completed":
         ticket["status"] = "completed"
         migrated_closed_tickets.append(ticket)
+    elif normalize_status(ticket.get("status")) == "deleted":
+        ticket["status"] = "deleted"
+        migrated_deleted_tickets.append(ticket)
     else:
         ticket["status"] = normalize_status(ticket.get("status"))
         migrated_open_tickets.append(ticket)
@@ -927,22 +934,35 @@ with middle_col:
                 current_status = normalize_status(selected.get("status"))
                 default_status = current_status if current_status in PROGRESS_OPTIONS else "in_progress"
                 default_urgency = current_urgency if current_urgency in {"low", "medium", "high"} else "medium"
+                current_classification = (
+                    (selected.get("classification") or "ticket").strip().lower()
+                )
+                default_classification = "spam" if current_classification == "spam" else "ticket"
 
-                urgency_choice, progress_choice = render_result(
+                urgency_choice, progress_choice, classification_choice, edited_title = render_result(
                     {
-                        "classification": selected.get("classification", "ticket"),
+                        "classification": default_classification,
                         "ticket": selected_ticket,
                         "resolution": selected.get("resolution", ""),
                     },
                     submitted_request=selected.get("message", ""),
                     default_urgency=default_urgency,
                     default_status=default_status,
+                    default_classification=default_classification,
                     key_prefix=f"selected_{selected.get('saved_id')}",
                 )
 
-                if urgency_choice != current_urgency or progress_choice != current_status:
+                normalized_title = edited_title or "Untitled ticket"
+                if (
+                    urgency_choice != current_urgency
+                    or progress_choice != current_status
+                    or classification_choice != default_classification
+                    or normalized_title != (selected_ticket.get("title") or "Untitled ticket")
+                ):
                     selected_ticket["urgency"] = urgency_choice
+                    selected_ticket["title"] = normalized_title
                     selected["status"] = progress_choice
+                    selected["classification"] = classification_choice
                     if progress_choice == "completed":
                         st.session_state.open_tickets = [
                             t
