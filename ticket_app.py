@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Healthcare Support Triage",
     page_icon="🩺",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown(
@@ -154,6 +154,41 @@ st.markdown(
             border-color: var(--accent);
             background: var(--accent-soft);
             box-shadow: 0 0 0 1px rgba(47, 125, 244, 0.15);
+        }
+        section[data-testid="stSidebar"] {
+            min-width: 420px;
+            max-width: 420px;
+        }
+        .urgency-ticket-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.65rem 0.75rem;
+            margin: 0.45rem 0 0.2rem 0;
+            box-shadow: var(--shadow);
+        }
+        .urgency-ticket-card.high {
+            background: rgba(239, 68, 68, 0.16);
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+        .urgency-ticket-card.medium {
+            background: rgba(251, 191, 36, 0.16);
+            border-color: rgba(251, 191, 36, 0.35);
+        }
+        .urgency-ticket-card.low {
+            background: rgba(59, 130, 246, 0.14);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        .urgency-ticket-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.15rem;
+        }
+        .urgency-ticket-meta {
+            font-size: 0.78rem;
+            color: var(--text-primary);
+            opacity: 0.9;
+            line-height: 1.35;
         }
         div[data-testid="stFormSubmitButton"] > button {
             background: var(--accent-danger);
@@ -621,9 +656,17 @@ for ticket in filtered_tickets:
     title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
     created_display = (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
     ticket_status = normalize_status(ticket.get("status"))
+    st.sidebar.markdown(
+        f"""
+        <div class="urgency-ticket-card {urgency}">
+            <div class="urgency-ticket-title">{html.escape(title)}</div>
+            <div class="urgency-ticket-meta">{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     queue_label = (
-        f"#{ticket_id[-6:] if ticket_id else 'N/A'} · {title}\n"
-        f"{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}"
+        f"Open #{ticket_id[-6:] if ticket_id else 'N/A'}"
     )
     if st.sidebar.button(
         queue_label,
