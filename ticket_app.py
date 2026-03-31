@@ -798,7 +798,7 @@ with left_col:
             return
         for idx, ticket in enumerate(tickets):
             ticket_id = ticket.get("saved_id", "")
-            widget_suffix = f"{ticket_id or 'noid'}_{idx}"
+            widget_suffix = ticket_id or f"idx_{idx}"
             title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
             urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
             queue_title = f"{urgency_icons[urgency]} {title}"
@@ -852,7 +852,7 @@ with left_col:
                 st.caption("No deleted/spam tickets.")
             for idx, ticket in enumerate(deleted_tickets):
                 ticket_id = ticket.get("saved_id", "")
-                widget_suffix = f"{ticket_id or 'noid'}_{idx}"
+                widget_suffix = ticket_id or f"idx_{idx}"
                 title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
                 urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
                 queue_title = f"{urgency_icons[urgency]} {title}"
