@@ -51,7 +51,7 @@ st.markdown(
         }
         .hero-shell {
             position: relative;
-            text-align: center;
+            text-align: left;
             margin-bottom: 1.2rem;
             padding: 1.2rem 1.1rem 1rem;
             border-radius: 18px;
@@ -88,25 +88,28 @@ st.markdown(
         .app-title {
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
+            flex-wrap: wrap;
             gap: 0.55rem;
             font-size: clamp(1.7rem, 3vw, 2.2rem);
             font-weight: 800;
             margin-bottom: 0.25rem;
             color: #0f172a;
             letter-spacing: -0.02em;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
         }
         .app-subtitle {
             color: #475569;
-            margin: 0 auto 0.9rem;
-            max-width: 860px;
+            margin: 0 0 0.9rem;
+            max-width: min(100%, 860px);
             font-size: 0.97rem;
         }
         .hero-metrics {
-            display: inline-flex;
+            display: flex;
             gap: 0.55rem;
             flex-wrap: wrap;
-            justify-content: center;
+            justify-content: flex-start;
         }
         .hero-pill {
             background: rgba(255,255,255,0.92);
