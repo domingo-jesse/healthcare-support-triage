@@ -524,7 +524,7 @@ def render_empty_result_placeholder() -> None:
     st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
     st.caption("Resolution output will appear here.")
     st.markdown(
-        '<div class="mini-note">Overview appears first and the resolution appears underneath it in this right panel.</div>',
+        '<div class="mini-note">Overview appears first and the resolution appears underneath it in this middle panel.</div>',
         unsafe_allow_html=True,
     )
     st.markdown("</div>", unsafe_allow_html=True)
@@ -541,7 +541,7 @@ if "message_input" not in st.session_state:
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="app-subtitle">Three-panel workspace: queue on the left, new ticket search in the middle, and overview/resolution on the right.</div>',
+    '<div class="app-subtitle">Three-panel workspace: queue on the left, overview/resolution in the middle, and new ticket search on the right.</div>',
     unsafe_allow_html=True,
 )
 
@@ -557,8 +557,7 @@ for ticket in filtered_tickets:
 left_col, middle_col, right_col = st.columns([1.2, 1.25, 1.55], gap="large")
 
 with left_col:
-    st.markdown('<div class="three-col-header">🎫 Queue</div>', unsafe_allow_html=True)
-    st.caption(f"{len(filtered_tickets)} ticket(s)")
+    st.markdown('<div class="three-col-header">📊 Queue stats</div>', unsafe_allow_html=True)
     st.markdown(
         f"""
         <div class="stats-grid" style="grid-template-columns: 1fr; margin-bottom: 0.5rem;">
@@ -570,6 +569,8 @@ with left_col:
         """,
         unsafe_allow_html=True,
     )
+    st.markdown('<div class="three-col-header">🎫 Queue</div>', unsafe_allow_html=True)
+    st.caption(f"{len(filtered_tickets)} ticket(s)")
 
     if not filtered_tickets:
         st.caption("No tickets match the current queue.")
@@ -593,17 +594,6 @@ with left_col:
             st.rerun()
 
 with middle_col:
-    st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
-    with st.form("triage_form", clear_on_submit=True):
-        message = st.text_area(
-            "Incoming support message",
-            key="message_input",
-            height=250,
-            placeholder="Paste a support ticket here...",
-        )
-        submitted = st.form_submit_button("Run triage", type="primary", use_container_width=True)
-
-with right_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
     if st.session_state.selected_ticket_id:
         selected = next(
@@ -630,6 +620,17 @@ with right_col:
             render_empty_result_placeholder()
     else:
         render_empty_result_placeholder()
+
+with right_col:
+    st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
+    with st.form("triage_form", clear_on_submit=True):
+        message = st.text_area(
+            "Incoming support message",
+            key="message_input",
+            height=250,
+            placeholder="Paste a support ticket here...",
+        )
+        submitted = st.form_submit_button("Run triage", type="primary", use_container_width=True)
 
 
 if submitted:
