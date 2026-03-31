@@ -195,16 +195,6 @@ st.markdown(
             border-color: var(--accent-danger);
             color: #fff;
         }
-        .toolbar-card {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: var(--bg-secondary);
-            padding: 0.75rem 1rem;
-            margin: 0.4rem 0 0.95rem 0;
-            box-shadow: var(--shadow);
-            color: var(--text-primary);
-            font-weight: 700;
-        }
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -332,22 +322,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-EXAMPLES = {
-    "Profile update issue": """Hi,
-
-I tried updating my phone number and office location in my profile settings, but it doesn’t seem to save after I click "Update."
-
-It’s not urgent, but I wanted to report it in case something is broken.
-
-Thanks,
-Mark""",
-    "Authorization outage": """A few of my coworkers are having the same issue. We cannot submit or check prior authorizations right now and it is blocking our work.""",
-    "Spam": """Buy cheap insurance leads now and click this link for an amazing deal.""",
-}
-
 TICKETS_DB_PATH = Path(__file__).parent / "tickets_store.json"
 URGENCY_RANK = {"high": 0, "medium": 1, "low": 2}
-URGENCY_SCORES = {"high": 100, "medium": 60, "low": 30}
 STATUS_STAGES = ("new", "in_progress", "blocked", "completed")
 STATUS_LABELS = {
     "new": "New",
@@ -539,14 +515,9 @@ if "message_input" not in st.session_state:
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="app-subtitle">Simple triage queue with a clean service-desk layout, search, and status tracking.</div>',
+    '<div class="app-subtitle">Simple triage queue with a clean service-desk layout and status tracking.</div>',
     unsafe_allow_html=True,
 )
-with st.expander("Examples", expanded=False):
-    example_choice = st.selectbox("Load a sample", ["Custom"] + list(EXAMPLES.keys()))
-    st.caption("Use one of these sample issues or paste your own message.")
-    if example_choice != "Custom":
-        st.session_state.message_input = EXAMPLES[example_choice]
 
 with st.form("triage_form", clear_on_submit=True):
     message = st.text_area(
@@ -589,43 +560,10 @@ if submitted:
         except Exception as e:
             st.error(f"Error: {e}")
 
-st.markdown('<div class="toolbar-card">🎛️ Ticket board controls</div>', unsafe_allow_html=True)
-controls_left, controls_mid, controls_right = st.columns([1.2, 1, 1.1], gap="medium")
-with controls_left:
-    search_term = st.text_input("Search tickets", placeholder="Search by title or message")
-with controls_mid:
-    urgency_filter = st.selectbox("Filter by urgency", ["All", "high", "medium", "low"])
-with controls_right:
-    sort_mode = st.selectbox(
-        "Sort tickets",
-        ["Urgency (high to low)", "Newest first", "Oldest first"],
-    )
-
 all_tickets = list(st.session_state.tickets)
 for ticket in all_tickets:
     ticket["status"] = normalize_status(ticket.get("status"))
-
-
-def ticket_matches(ticket: dict) -> bool:
-    title = ((ticket.get("ticket") or {}).get("title") or "").lower()
-    body = (ticket.get("message") or "").lower()
-    urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
-    term_ok = not search_term.strip() or search_term.lower().strip() in f"{title} {body}"
-    urgency_ok = urgency_filter == "All" or urgency == urgency_filter
-    return term_ok and urgency_ok
-
-
-filtered_tickets = [t for t in all_tickets if ticket_matches(t)]
-if sort_mode == "Urgency (high to low)":
-    filtered_tickets = sorted(
-        filtered_tickets,
-        key=lambda t: URGENCY_SCORES.get(normalize_urgency((t.get("ticket") or {}).get("urgency")), 0),
-        reverse=True,
-    )
-elif sort_mode == "Newest first":
-    filtered_tickets = sorted(filtered_tickets, key=lambda t: t.get("created_at", ""), reverse=True)
-elif sort_mode == "Oldest first":
-    filtered_tickets = sorted(filtered_tickets, key=lambda t: t.get("created_at", ""))
+filtered_tickets = rank_tickets(all_tickets)
 
 status_counts = {status: 0 for status in STATUS_STAGES}
 for ticket in filtered_tickets:
