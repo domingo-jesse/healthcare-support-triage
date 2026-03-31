@@ -757,43 +757,44 @@ with left_col:
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
-    if st.session_state.selected_ticket_id:
-        selected = next(
-            (
-                entry
-                for entry in st.session_state.tickets
-                if entry.get("saved_id") == st.session_state.selected_ticket_id
-            ),
-            None,
-        )
-        if selected:
-            selected_ticket = selected.get("ticket") or {}
-            current_urgency = normalize_urgency(selected_ticket.get("urgency"))
-            current_status = normalize_status(selected.get("status"))
-            default_status = current_status if current_status in PROGRESS_OPTIONS else "in_progress"
-            default_urgency = current_urgency if current_urgency in {"low", "medium", "high"} else "medium"
-
-            urgency_choice, progress_choice = render_result(
-                {
-                    "classification": selected.get("classification", "ticket"),
-                    "ticket": selected_ticket,
-                    "resolution": selected.get("resolution", ""),
-                },
-                submitted_request=selected.get("message", ""),
-                default_urgency=default_urgency,
-                default_status=default_status,
-                key_prefix=f"selected_{selected.get('saved_id')}",
+    with st.container(height=760, border=False):
+        if st.session_state.selected_ticket_id:
+            selected = next(
+                (
+                    entry
+                    for entry in st.session_state.tickets
+                    if entry.get("saved_id") == st.session_state.selected_ticket_id
+                ),
+                None,
             )
+            if selected:
+                selected_ticket = selected.get("ticket") or {}
+                current_urgency = normalize_urgency(selected_ticket.get("urgency"))
+                current_status = normalize_status(selected.get("status"))
+                default_status = current_status if current_status in PROGRESS_OPTIONS else "in_progress"
+                default_urgency = current_urgency if current_urgency in {"low", "medium", "high"} else "medium"
 
-            if urgency_choice != current_urgency or progress_choice != current_status:
-                selected_ticket["urgency"] = urgency_choice
-                selected["status"] = progress_choice
-                save_tickets(st.session_state.tickets)
-                st.rerun()
+                urgency_choice, progress_choice = render_result(
+                    {
+                        "classification": selected.get("classification", "ticket"),
+                        "ticket": selected_ticket,
+                        "resolution": selected.get("resolution", ""),
+                    },
+                    submitted_request=selected.get("message", ""),
+                    default_urgency=default_urgency,
+                    default_status=default_status,
+                    key_prefix=f"selected_{selected.get('saved_id')}",
+                )
+
+                if urgency_choice != current_urgency or progress_choice != current_status:
+                    selected_ticket["urgency"] = urgency_choice
+                    selected["status"] = progress_choice
+                    save_tickets(st.session_state.tickets)
+                    st.rerun()
+            else:
+                render_empty_result_placeholder()
         else:
             render_empty_result_placeholder()
-    else:
-        render_empty_result_placeholder()
 
 with right_col:
     st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
