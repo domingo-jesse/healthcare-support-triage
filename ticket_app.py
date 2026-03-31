@@ -99,6 +99,7 @@ st.markdown(
         .badge-low { background: #dbeafe; color: #1d4ed8; }
         .badge-medium { background: #fef3c7; color: #92400e; }
         .badge-high { background: #fee2e2; color: #b91c1c; }
+        .badge-spam { background: #f3e8ff; color: #7e22ce; }
         .ticket-title {
             font-size: 1.1rem;
             font-weight: 700;
@@ -123,6 +124,29 @@ st.markdown(
             white-space: pre-wrap;
             line-height: 1.55;
             color: var(--text-primary);
+        }
+        .overview-row-box {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--bg-secondary);
+            padding: 0.75rem;
+            margin-top: 0.6rem;
+            box-shadow: var(--shadow);
+        }
+        .overview-row-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.7rem;
+            align-items: start;
+        }
+        .overview-row-item .section-label {
+            margin-top: 0;
+            margin-bottom: 0.2rem;
+        }
+        .overview-row-item .metric-value,
+        .overview-row-item .ticket-title {
+            margin: 0;
+            font-size: 0.98rem;
         }
         div[data-testid="stTextArea"] textarea {
             border-radius: 12px;
@@ -328,6 +352,9 @@ st.markdown(
                 grid-template-columns: 62px 100px 1.7fr 160px 150px 110px 110px;
                 font-size: 0.82rem;
             }
+            .overview-row-grid {
+                grid-template-columns: 1fr 1fr;
+            }
         }
     </style>
     """,
@@ -412,6 +439,13 @@ def urgency_badge_html(urgency: str) -> str:
     return f'<span class="badge {css_class}">{urgency.upper()}</span>'
 
 
+def classification_badge_html(classification: str) -> str:
+    normalized = (classification or "").strip().lower()
+    css_class = "badge-spam" if normalized == "spam" else "badge-medium"
+    label = "SPAM" if normalized == "spam" else "TICKET"
+    return f'<span class="badge {css_class}">{label}</span>'
+
+
 def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
     root_cause = ""
     next_steps = ""
@@ -456,29 +490,36 @@ def render_result(result: dict, submitted_request: str = "") -> None:
             f'<div class="response-box">{html.escape(submitted_request)}</div>',
             unsafe_allow_html=True,
         )
-    st.markdown('<div class="metric-label">Classification</div>', unsafe_allow_html=True)
+    ticket = result.get("ticket") or {}
     st.markdown(
-        f'<div class="metric-value">{result["classification"].upper()}</div>',
+        f"""
+        <div class="overview-row-box">
+          <div class="overview-row-grid">
+            <div class="overview-row-item">
+              <div class="section-label">Classification</div>
+              {classification_badge_html(result.get("classification", "ticket"))}
+            </div>
+            <div class="overview-row-item">
+              <div class="section-label">Ticket</div>
+              <div class="metric-value">TICKET</div>
+            </div>
+            <div class="overview-row-item">
+              <div class="section-label">Ticket ID</div>
+              <div class="metric-value">{html.escape(ticket.get("ticketId", "N/A"))}</div>
+            </div>
+            <div class="overview-row-item">
+              <div class="section-label">Title</div>
+              <div class="ticket-title">{html.escape(ticket.get("title", "Untitled ticket"))}</div>
+            </div>
+            <div class="overview-row-item">
+              <div class="section-label">Urgency</div>
+              {urgency_badge_html(ticket.get("urgency", "medium"))}
+            </div>
+          </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
-
-    if result["ticket"]:
-        ticket = result["ticket"]
-
-        st.markdown('<div class="section-label">Ticket ID</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="metric-value">{ticket["ticketId"]}</div>',
-            unsafe_allow_html=True,
-        )
-
-        st.markdown('<div class="section-label">Title</div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="ticket-title">{ticket["title"]}</div>',
-            unsafe_allow_html=True,
-        )
-
-        st.markdown('<div class="section-label">Urgency</div>', unsafe_allow_html=True)
-        st.markdown(urgency_badge_html(ticket["urgency"]), unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -581,8 +622,10 @@ with left_col:
         title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
         created_display = (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
         ticket_status = normalize_status(ticket.get("status"))
+        classification = (ticket.get("classification") or "ticket").strip().lower()
+        classification_label = "SPAM" if classification == "spam" else "TICKET"
         queue_label = (
-            f"{title}\n{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}"
+            f"[{classification_label}] {title}\n{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}"
         )
         if st.button(
             queue_label,
@@ -642,24 +685,34 @@ if submitted:
                 result = asyncio.run(run_workflow(WorkflowInput(input_as_text=message.strip())))
 
             if result.get("ticket"):
-                result["ticket"]["urgency"] = normalize_urgency(result["ticket"].get("urgency"))
-                normalized_ticket_id = ensure_unique_ticket_id(
-                    result["ticket"].get("ticketId"), st.session_state.tickets
-                )
-                result["ticket"]["ticketId"] = normalized_ticket_id
-
-                saved_entry = {
-                    "saved_id": normalized_ticket_id,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "status": "new",
-                    "message": message.strip(),
-                    "classification": result["classification"],
-                    "ticket": result["ticket"],
-                    "resolution": result["resolution"],
+                ticket_data = result["ticket"]
+                ticket_data["urgency"] = normalize_urgency(ticket_data.get("urgency"))
+                ticket_data["title"] = (ticket_data.get("title") or "Untitled ticket").strip()
+            else:
+                snippet = " ".join(message.strip().split())[:60]
+                ticket_data = {
+                    "ticketId": "",
+                    "title": f"Spam: {snippet}" if snippet else "Spam message",
+                    "urgency": "low",
                 }
-                st.session_state.tickets.append(saved_entry)
-                save_tickets(st.session_state.tickets)
-                st.session_state.selected_ticket_id = saved_entry["saved_id"]
+
+            normalized_ticket_id = ensure_unique_ticket_id(
+                ticket_data.get("ticketId"), st.session_state.tickets
+            )
+            ticket_data["ticketId"] = normalized_ticket_id
+
+            saved_entry = {
+                "saved_id": normalized_ticket_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "status": "new",
+                "message": message.strip(),
+                "classification": result["classification"],
+                "ticket": ticket_data,
+                "resolution": result["resolution"],
+            }
+            st.session_state.tickets.append(saved_entry)
+            save_tickets(st.session_state.tickets)
+            st.session_state.selected_ticket_id = saved_entry["saved_id"]
 
             st.success("Analysis complete")
             st.rerun()
