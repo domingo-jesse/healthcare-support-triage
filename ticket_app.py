@@ -468,6 +468,7 @@ def rank_tickets(tickets: list[dict]) -> list[dict]:
         tickets,
         key=lambda t: (
             URGENCY_RANK.get((t.get("ticket") or {}).get("urgency", "medium").lower(), 1),
+            STATUS_STAGES.index(normalize_status(t.get("status"))),
             t.get("created_at", ""),
         ),
         reverse=False,
@@ -692,29 +693,47 @@ with left_col:
     if not filtered_tickets:
         st.caption("No tickets match the current queue.")
 
-    st.markdown('<div class="queue-scroll-wrap">', unsafe_allow_html=True)
+    tickets_by_urgency: dict[str, list[dict]] = {"high": [], "medium": [], "low": []}
     for ticket in filtered_tickets:
-        ticket_id = ticket.get("saved_id", "")
-        urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
-        title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
-        created_display = (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
-        ticket_status = normalize_status(ticket.get("status"))
-        classification = (ticket.get("classification") or "ticket").strip().lower()
-        classification_label = "SPAM" if classification == "spam" else "TICKET"
-        urgency_label = urgency.upper()
-        queue_title = f"[{classification_label}] {title}"
-        queue_meta = f"{urgency_label} · {STATUS_LABELS[ticket_status]} · {created_display}"
-        st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
-        if st.button(
-            f"{queue_title}\n{queue_meta}",
-            key=f"queue_open_{ticket_id}",
-            use_container_width=True,
-            help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-        ):
-            st.session_state.selected_ticket_id = ticket_id
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        tickets_by_urgency[normalize_urgency((ticket.get("ticket") or {}).get("urgency"))].append(ticket)
+
+    urgency_icons = {"high": "🟥", "medium": "🟨", "low": "🟦"}
+    urgency_labels = {"high": "High urgency", "medium": "Medium urgency", "low": "Low urgency"}
+
+    with st.container(height=640, border=False):
+        for urgency in ("high", "medium", "low"):
+            urgency_tickets = tickets_by_urgency[urgency]
+            if not urgency_tickets:
+                continue
+
+            st.markdown(
+                f'<div class="section-label">{urgency_icons[urgency]} {urgency_labels[urgency]} ({len(urgency_tickets)})</div>',
+                unsafe_allow_html=True,
+            )
+            for ticket in urgency_tickets:
+                ticket_id = ticket.get("saved_id", "")
+                title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
+                created_display = (
+                    (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
+                )
+                ticket_status = normalize_status(ticket.get("status"))
+                classification = (ticket.get("classification") or "ticket").strip().lower()
+                classification_label = "SPAM" if classification == "spam" else "TICKET"
+                queue_title = f"{urgency_icons[urgency]} [{classification_label}] {title}"
+                queue_meta = f"{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}"
+                st.markdown(
+                    f'<div class="queue-item-row queue-ticket-button {urgency}">',
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    f"{queue_title}\n{queue_meta}",
+                    key=f"queue_open_{ticket_id}",
+                    use_container_width=True,
+                    help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
+                ):
+                    st.session_state.selected_ticket_id = ticket_id
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
