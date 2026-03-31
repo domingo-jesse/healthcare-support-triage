@@ -45,11 +45,14 @@ st.markdown(
             }
         }
         .main, .stApp {
-            background: radial-gradient(circle at top right, #172554 0%, transparent 30%), var(--bg-primary);
+            background: var(--bg-primary);
             color: var(--text-primary);
         }
+        [data-testid="stHeader"] {
+            display: none;
+        }
         .block-container {
-            padding-top: 1.8rem;
+            padding-top: 1rem;
             padding-bottom: 2rem;
             max-width: 1320px;
         }
@@ -196,6 +199,34 @@ st.markdown(
             color: var(--text-muted);
             margin-top: 0.3rem;
             margin-bottom: 0.65rem;
+        }
+        .list-container {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--bg-secondary);
+            padding: 1rem;
+            box-shadow: var(--shadow);
+        }
+        .list-header {
+            font-size: 1rem;
+            font-weight: 800;
+            margin-bottom: 0.75rem;
+        }
+        .list-item {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card-gradient);
+            padding: 0.75rem;
+            margin-bottom: 0.55rem;
+        }
+        .list-item-title {
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.35rem;
+        }
+        .list-item-meta {
+            color: var(--text-muted);
+            font-size: 0.78rem;
         }
     </style>
     """,
@@ -411,7 +442,7 @@ if "selected_ticket_label" not in st.session_state:
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="app-subtitle">Dark-mode optimized triage board with sortable tickets and stage movement controls.</div>',
+    '<div class="app-subtitle">Simple triage queue with dark-mode support, search, and status tracking.</div>',
     unsafe_allow_html=True,
 )
 
@@ -510,7 +541,7 @@ with controls_mid:
 with controls_right:
     sort_mode = st.selectbox(
         "Sort tickets",
-        ["Manual order", "Urgency (high to low)", "Newest first", "Oldest first"],
+        ["Urgency (high to low)", "Newest first", "Oldest first"],
     )
 
 all_tickets = list(st.session_state.tickets)
@@ -555,85 +586,51 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="mini-note">Features added: dark-mode visual refresh, kanban ticket stages, search/filter/sort toolbar, and manual up/down ordering controls.</div>',
+    '<div class="mini-note">Queue view replaces kanban movement controls for easier triage updates.</div>',
     unsafe_allow_html=True,
 )
 
-board_cols = st.columns(4, gap="small")
-for idx, status in enumerate(STATUS_STAGES):
-    with board_cols[idx]:
-        tickets_for_status = [
-            t for t in filtered_tickets if normalize_status(t.get("status")) == status
-        ]
-        st.markdown(
-            f'<div class="board-column"><div class="board-title">{STATUS_LABELS[status]} <span class="column-chip">{len(tickets_for_status)}</span></div>',
-            unsafe_allow_html=True,
+st.markdown(
+    f'<div class="list-container"><div class="list-header">Ticket Queue ({len(filtered_tickets)})</div></div>',
+    unsafe_allow_html=True,
+)
+
+if not filtered_tickets:
+    st.caption("No tickets match the current filters.")
+
+for ticket in filtered_tickets:
+    ticket_id = ticket.get("saved_id", "")
+    urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
+    title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
+
+    st.markdown(
+        f"""
+        <div class="list-item">
+            <div class="list-item-title">{html.escape(title)}</div>
+            {urgency_badge_html(urgency)}
+            <div class="list-item-meta">Ticket ID: {html.escape(ticket_id)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    row_cols = st.columns([1.2, 1, 0.9])
+    with row_cols[0]:
+        selected_status = st.selectbox(
+            "Status",
+            options=list(STATUS_STAGES),
+            format_func=lambda s: STATUS_LABELS[s],
+            index=STATUS_STAGES.index(normalize_status(ticket.get("status"))),
+            key=f"status_{ticket_id}",
+            label_visibility="collapsed",
         )
-
-        if not tickets_for_status:
-            st.caption("No tickets here.")
-
-        for ticket in tickets_for_status:
-            ticket_id = ticket.get("saved_id", "")
-            urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
-            title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
-
-            st.markdown(
-                f"""
-                <div class="ticket-card">
-                    <strong>{html.escape(title)}</strong><br/>
-                    {urgency_badge_html(urgency)}
-                    <div class="ticket-meta">{ticket_id}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            action_cols = st.columns([1, 1, 1])
-            with action_cols[0]:
-                if st.button("Open", key=f"open_{ticket_id}", use_container_width=True):
-                    st.session_state.selected_ticket_id = ticket_id
-                    st.rerun()
-            with action_cols[1]:
-                move_label = "↺ Reopen" if status == "completed" else "Next ▶"
-                if st.button(move_label, key=f"next_{ticket_id}", use_container_width=True):
-                    stage_idx = STATUS_STAGES.index(status)
-                    ticket["status"] = (
-                        STATUS_STAGES[0]
-                        if status == "completed"
-                        else STATUS_STAGES[min(stage_idx + 1, len(STATUS_STAGES) - 1)]
-                    )
-                    save_tickets(st.session_state.tickets)
-                    st.rerun()
-            with action_cols[2]:
-                if st.button("◀ Prev", key=f"prev_{ticket_id}", use_container_width=True):
-                    stage_idx = STATUS_STAGES.index(status)
-                    ticket["status"] = STATUS_STAGES[max(stage_idx - 1, 0)]
-                    save_tickets(st.session_state.tickets)
-                    st.rerun()
-
-            order_cols = st.columns([1, 1])
-            with order_cols[0]:
-                if st.button("↑", key=f"up_{ticket_id}", use_container_width=True):
-                    current_index = st.session_state.tickets.index(ticket)
-                    if current_index > 0:
-                        st.session_state.tickets[current_index - 1], st.session_state.tickets[current_index] = (
-                            st.session_state.tickets[current_index],
-                            st.session_state.tickets[current_index - 1],
-                        )
-                        save_tickets(st.session_state.tickets)
-                        st.rerun()
-            with order_cols[1]:
-                if st.button("↓", key=f"down_{ticket_id}", use_container_width=True):
-                    current_index = st.session_state.tickets.index(ticket)
-                    if current_index < len(st.session_state.tickets) - 1:
-                        st.session_state.tickets[current_index + 1], st.session_state.tickets[current_index] = (
-                            st.session_state.tickets[current_index],
-                            st.session_state.tickets[current_index + 1],
-                        )
-                        save_tickets(st.session_state.tickets)
-                        st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+        if selected_status != normalize_status(ticket.get("status")):
+            ticket["status"] = selected_status
+            save_tickets(st.session_state.tickets)
+            st.rerun()
+    with row_cols[1]:
+        if st.button("Open ticket", key=f"open_{ticket_id}", use_container_width=True):
+            st.session_state.selected_ticket_id = ticket_id
+            st.rerun()
 
 if st.session_state.selected_ticket_id:
     selected = next(
