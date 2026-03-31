@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Healthcare Support Triage",
     page_icon="🩺",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
@@ -50,6 +50,11 @@ st.markdown(
         .centered-stack {
             max-width: 900px;
             margin: 0 auto;
+        }
+        .three-col-header {
+            font-size: 1rem;
+            font-weight: 800;
+            margin-bottom: 0.6rem;
         }
         .app-title {
             font-size: 2rem;
@@ -444,95 +449,85 @@ def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
 
 
 def render_result(result: dict, submitted_request: str = "") -> None:
-    with st.container():
-        st.markdown('<div class="centered-stack">', unsafe_allow_html=True)
-        st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
-        if submitted_request:
-            st.markdown('<div class="section-label">Submitted Request</div>', unsafe_allow_html=True)
-            st.markdown(
-                f'<div class="response-box">{html.escape(submitted_request)}</div>',
-                unsafe_allow_html=True,
-            )
-        st.markdown('<div class="metric-label">Classification</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
+    if submitted_request:
+        st.markdown('<div class="section-label">Submitted Request</div>', unsafe_allow_html=True)
         st.markdown(
-            f'<div class="metric-value">{result["classification"].upper()}</div>',
+            f'<div class="response-box">{html.escape(submitted_request)}</div>',
+            unsafe_allow_html=True,
+        )
+    st.markdown('<div class="metric-label">Classification</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="metric-value">{result["classification"].upper()}</div>',
+        unsafe_allow_html=True,
+    )
+
+    if result["ticket"]:
+        ticket = result["ticket"]
+
+        st.markdown('<div class="section-label">Ticket ID</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-value">{ticket["ticketId"]}</div>',
             unsafe_allow_html=True,
         )
 
-        if result["ticket"]:
-            ticket = result["ticket"]
+        st.markdown('<div class="section-label">Title</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="ticket-title">{ticket["title"]}</div>',
+            unsafe_allow_html=True,
+        )
 
-            st.markdown('<div class="section-label">Ticket ID</div>', unsafe_allow_html=True)
-            st.markdown(
-                f'<div class="metric-value">{ticket["ticketId"]}</div>',
-                unsafe_allow_html=True,
-            )
+        st.markdown('<div class="section-label">Urgency</div>', unsafe_allow_html=True)
+        st.markdown(urgency_badge_html(ticket["urgency"]), unsafe_allow_html=True)
 
-            st.markdown('<div class="section-label">Title</div>', unsafe_allow_html=True)
-            st.markdown(
-                f'<div class="ticket-title">{ticket["title"]}</div>',
-                unsafe_allow_html=True,
-            )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-            st.markdown('<div class="section-label">Urgency</div>', unsafe_allow_html=True)
-            st.markdown(urgency_badge_html(ticket["urgency"]), unsafe_allow_html=True)
+    root_cause, next_steps, suggested_response = parse_resolution_text(result["resolution"])
 
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-    with st.container():
-        st.markdown('<div class="centered-stack">', unsafe_allow_html=True)
-        root_cause, next_steps, suggested_response = parse_resolution_text(result["resolution"])
+    st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
 
-        st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
+    if root_cause:
+        st.markdown('<div class="section-label">Likely Root Cause</div>', unsafe_allow_html=True)
+        st.write(root_cause)
 
-        if root_cause:
-            st.markdown('<div class="section-label">Likely Root Cause</div>', unsafe_allow_html=True)
-            st.write(root_cause)
+    if next_steps:
+        st.markdown(
+            '<div class="section-label">Recommended Next Steps</div>', unsafe_allow_html=True
+        )
+        st.write(next_steps)
+    else:
+        st.markdown('<div class="section-label">Resolution Notes</div>', unsafe_allow_html=True)
+        st.write(result["resolution"])
 
-        if next_steps:
-            st.markdown(
-                '<div class="section-label">Recommended Next Steps</div>', unsafe_allow_html=True
-            )
-            st.write(next_steps)
-        else:
-            st.markdown('<div class="section-label">Resolution Notes</div>', unsafe_allow_html=True)
-            st.write(result["resolution"])
+    if suggested_response:
+        st.markdown(
+            '<div class="section-label">Suggested Customer Response</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<div class="response-box">{html.escape(suggested_response)}</div>',
+            unsafe_allow_html=True,
+        )
 
-        if suggested_response:
-            st.markdown(
-                '<div class="section-label">Suggested Customer Response</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                f'<div class="response-box">{html.escape(suggested_response)}</div>',
-                unsafe_allow_html=True,
-            )
-
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_empty_result_placeholder() -> None:
-    with st.container():
-        st.markdown('<div class="centered-stack">', unsafe_allow_html=True)
-        st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
-        st.caption("No ticket selected yet.")
-        st.markdown(
-            '<div class="mini-note">Run a new triage search below or choose a ticket from the queue to view overview details.</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-    with st.container():
-        st.markdown('<div class="centered-stack">', unsafe_allow_html=True)
-        st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
-        st.caption("Resolution output will appear here.")
-        st.markdown(
-            '<div class="mini-note">Once a ticket is analyzed, likely root cause, recommended steps, and suggested response will display in this panel.</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
+    st.caption("No ticket selected yet.")
+    st.markdown(
+        '<div class="mini-note">Choose a ticket from the queue or run a new triage search from the middle panel.</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
+    st.caption("Resolution output will appear here.")
+    st.markdown(
+        '<div class="mini-note">Overview appears first and the resolution appears underneath it in this right panel.</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 if "tickets" not in st.session_state:
@@ -546,7 +541,7 @@ if "message_input" not in st.session_state:
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="app-subtitle">Simple triage queue with a clean service-desk layout and status tracking.</div>',
+    '<div class="app-subtitle">Three-panel workspace: queue on the left, new ticket search in the middle, and overview/resolution on the right.</div>',
     unsafe_allow_html=True,
 )
 
@@ -559,77 +554,83 @@ status_counts = {status: 0 for status in STATUS_STAGES}
 for ticket in filtered_tickets:
     status_counts[normalize_status(ticket.get("status"))] += 1
 
-st.sidebar.caption(f"{len(filtered_tickets)} ticket(s)")
-st.sidebar.markdown("### 📊 Ticket Stats")
-st.sidebar.markdown(
-    f"""
-    <div class="stats-grid" style="grid-template-columns: 1fr; margin-bottom: 0.5rem;">
-      <div class="stat-box"><div class="stat-label">Total Tickets</div><div class="stat-value">{len(filtered_tickets)}</div></div>
-      <div class="stat-box"><div class="stat-label">High Urgency</div><div class="stat-value">{sum(1 for t in filtered_tickets if normalize_urgency((t.get("ticket") or {}).get("urgency")) == "high")}</div></div>
-      <div class="stat-box"><div class="stat-label">In Progress</div><div class="stat-value">{status_counts['in_progress']}</div></div>
-      <div class="stat-box"><div class="stat-label">Blocked</div><div class="stat-value">{status_counts['blocked']}</div></div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-st.sidebar.markdown("## 🎫 Ticket Queue")
+left_col, middle_col, right_col = st.columns([1.2, 1.25, 1.55], gap="large")
 
-if not filtered_tickets:
-    st.sidebar.caption("No tickets match the current filters.")
-
-for ticket in filtered_tickets:
-    ticket_id = ticket.get("saved_id", "")
-    urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
-    title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
-    created_display = (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
-    ticket_status = normalize_status(ticket.get("status"))
-    queue_label = (
-        f"{title}\n{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}"
+with left_col:
+    st.markdown('<div class="three-col-header">🎫 Queue</div>', unsafe_allow_html=True)
+    st.caption(f"{len(filtered_tickets)} ticket(s)")
+    st.markdown(
+        f"""
+        <div class="stats-grid" style="grid-template-columns: 1fr; margin-bottom: 0.5rem;">
+          <div class="stat-box"><div class="stat-label">Total Tickets</div><div class="stat-value">{len(filtered_tickets)}</div></div>
+          <div class="stat-box"><div class="stat-label">High Urgency</div><div class="stat-value">{sum(1 for t in filtered_tickets if normalize_urgency((t.get('ticket') or {}).get('urgency')) == 'high')}</div></div>
+          <div class="stat-box"><div class="stat-label">In Progress</div><div class="stat-value">{status_counts['in_progress']}</div></div>
+          <div class="stat-box"><div class="stat-label">Blocked</div><div class="stat-value">{status_counts['blocked']}</div></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    if st.sidebar.button(
-        queue_label,
-        key=f"queue_open_{ticket_id}",
-        use_container_width=True,
-        help=f"Ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-    ):
-        st.session_state.selected_ticket_id = ticket_id
-        st.rerun()
 
-if st.session_state.selected_ticket_id:
-    selected = next(
-        (
-            entry
-            for entry in st.session_state.tickets
-            if entry.get("saved_id") == st.session_state.selected_ticket_id
-        ),
-        None,
-    )
-    if selected:
-        st.info(f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}")
-        render_result(
-            {
-                "classification": selected.get("classification", "ticket"),
-                "ticket": selected.get("ticket"),
-                "resolution": selected.get("resolution", ""),
-            },
-            submitted_request=selected.get("message", ""),
+    if not filtered_tickets:
+        st.caption("No tickets match the current queue.")
+
+    for ticket in filtered_tickets:
+        ticket_id = ticket.get("saved_id", "")
+        urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
+        title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
+        created_display = (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
+        ticket_status = normalize_status(ticket.get("status"))
+        queue_label = (
+            f"{title}\n{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}"
         )
+        if st.button(
+            queue_label,
+            key=f"queue_open_{ticket_id}",
+            use_container_width=True,
+            help=f"Ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
+        ):
+            st.session_state.selected_ticket_id = ticket_id
+            st.rerun()
+
+with middle_col:
+    st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
+    with st.form("triage_form", clear_on_submit=True):
+        message = st.text_area(
+            "Incoming support message",
+            key="message_input",
+            height=250,
+            placeholder="Paste a support ticket here...",
+        )
+        submitted = st.form_submit_button("Run triage", type="primary", use_container_width=True)
+
+with right_col:
+    st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
+    if st.session_state.selected_ticket_id:
+        selected = next(
+            (
+                entry
+                for entry in st.session_state.tickets
+                if entry.get("saved_id") == st.session_state.selected_ticket_id
+            ),
+            None,
+        )
+        if selected:
+            st.info(
+                f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}"
+            )
+            render_result(
+                {
+                    "classification": selected.get("classification", "ticket"),
+                    "ticket": selected.get("ticket"),
+                    "resolution": selected.get("resolution", ""),
+                },
+                submitted_request=selected.get("message", ""),
+            )
+        else:
+            render_empty_result_placeholder()
     else:
         render_empty_result_placeholder()
-else:
-    render_empty_result_placeholder()
 
-st.markdown('<div class="centered-stack">', unsafe_allow_html=True)
-st.markdown("### 🔎 New ticket search")
-with st.form("triage_form", clear_on_submit=True):
-    message = st.text_area(
-        "Incoming support message",
-        key="message_input",
-        height=190,
-        placeholder="Paste a support ticket here...",
-    )
-    submitted = st.form_submit_button("Run triage", type="primary", use_container_width=True)
-st.markdown("</div>", unsafe_allow_html=True)
 
 if submitted:
     if not message.strip():
