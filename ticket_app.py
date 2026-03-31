@@ -542,13 +542,9 @@ def render_empty_result_placeholder() -> None:
 
 
 def persist_ticket_state() -> None:
-    try:
-        save_tickets(st.session_state.open_tickets)
-        save_closed_tickets(st.session_state.closed_tickets)
-        save_deleted_tickets(st.session_state.deleted_tickets)
-    except OSError:
-        # Some hosted environments can block local writes; keep UI responsive.
-        pass
+    save_tickets(st.session_state.open_tickets)
+    save_closed_tickets(st.session_state.closed_tickets)
+    save_deleted_tickets(st.session_state.deleted_tickets)
 
 
 if "open_tickets" not in st.session_state:
@@ -582,16 +578,10 @@ for ticket in st.session_state.open_tickets:
     else:
         ticket["status"] = normalize_status(ticket.get("status"))
         migrated_open_tickets.append(ticket)
-state_migrated = (
-    migrated_open_tickets != st.session_state.open_tickets
-    or migrated_closed_tickets != st.session_state.closed_tickets
-    or migrated_deleted_tickets != st.session_state.deleted_tickets
-)
 st.session_state.open_tickets = migrated_open_tickets
 st.session_state.closed_tickets = migrated_closed_tickets
 st.session_state.deleted_tickets = migrated_deleted_tickets
-if state_migrated:
-    persist_ticket_state()
+persist_ticket_state()
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
