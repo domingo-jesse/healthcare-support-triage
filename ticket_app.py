@@ -1,7 +1,11 @@
 import asyncio
+import json
 from datetime import datetime, timezone
+from pathlib import Path
+
 import streamlit as st
-from workflow_backend import run_workflow, WorkflowInput
+
+from workflow_backend import WorkflowInput, run_workflow
 
 st.set_page_config(
     page_title="Healthcare Support Triage",
@@ -123,6 +127,36 @@ Mark""",
     "Spam": """Buy cheap insurance leads now and click this link for an amazing deal.""",
 }
 
+TICKETS_DB_PATH = Path(__file__).parent / "tickets_store.json"
+URGENCY_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+def load_tickets() -> list[dict]:
+    if not TICKETS_DB_PATH.exists():
+        return []
+    try:
+        data = json.loads(TICKETS_DB_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+    except (json.JSONDecodeError, OSError):
+        return []
+    return []
+
+
+def save_tickets(tickets: list[dict]) -> None:
+    TICKETS_DB_PATH.write_text(json.dumps(tickets, indent=2), encoding="utf-8")
+
+
+def rank_tickets(tickets: list[dict]) -> list[dict]:
+    return sorted(
+        tickets,
+        key=lambda t: (
+            URGENCY_RANK.get((t.get("ticket") or {}).get("urgency", "medium").lower(), 1),
+            t.get("created_at", ""),
+        ),
+        reverse=False,
+    )
+
 
 URGENCY_SCORES = {
     "high": 100,
@@ -163,8 +197,12 @@ def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
     if "Suggested Response" in resolution:
         suggested_response = resolution.split("Suggested Response", 1)[1]
 
-    root_cause = root_cause.replace("for Support Team:", "").replace("to Customer:", "").strip(" :\n")
-    next_steps = next_steps.replace("for Support Team:", "").replace("to Customer:", "").strip(" :\n")
+    root_cause = (
+        root_cause.replace("for Support Team:", "").replace("to Customer:", "").strip(" :\n")
+    )
+    next_steps = (
+        next_steps.replace("for Support Team:", "").replace("to Customer:", "").strip(" :\n")
+    )
     suggested_response = suggested_response.replace("to Customer:", "").strip(" :\n")
 
     if not root_cause and not next_steps and not suggested_response:
@@ -173,57 +211,79 @@ def parse_resolution_text(resolution: str) -> tuple[str, str, str]:
     return root_cause.strip(), next_steps.strip(), suggested_response.strip()
 
 
-def get_ticket_priority_score(urgency: str, repeat_count: int) -> int:
-    urgency_score = URGENCY_SCORES.get((urgency or "").lower(), 40)
-    repeat_bonus = max(repeat_count - 1, 0) * 5
-    return urgency_score + repeat_bonus
+def render_result(result: dict) -> None:
+    left, right = st.columns([1, 1.2], gap="large")
 
-
-def upsert_ticket_queue(message_text: str, ticket: dict, resolution: str) -> dict:
-    queue = st.session_state["ticket_queue"]
-    normalized_message = message_text.strip().lower()
-
-    existing_item = next(
-        (item for item in queue if item["normalized_message"] == normalized_message),
-        None,
-    )
-
-    if existing_item:
-        existing_item["run_count"] += 1
-        existing_item["ticket_id"] = ticket["ticketId"]
-        existing_item["title"] = ticket["title"]
-        existing_item["urgency"] = ticket["urgency"]
-        existing_item["resolution"] = resolution
-        existing_item["last_message"] = message_text.strip()
-        existing_item["last_updated"] = datetime.now(timezone.utc).isoformat()
-        existing_item["priority_score"] = get_ticket_priority_score(
-            existing_item["urgency"], existing_item["run_count"]
+    with left:
+        st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-label">Classification</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="metric-value">{result["classification"].upper()}</div>',
+            unsafe_allow_html=True,
         )
-        return existing_item
 
-    new_item = {
-        "normalized_message": normalized_message,
-        "last_message": message_text.strip(),
-        "ticket_id": ticket["ticketId"],
-        "title": ticket["title"],
-        "urgency": ticket["urgency"],
-        "resolution": resolution,
-        "run_count": 1,
-        "last_updated": datetime.now(timezone.utc).isoformat(),
-    }
-    new_item["priority_score"] = get_ticket_priority_score(
-        new_item["urgency"], new_item["run_count"]
-    )
-    queue.append(new_item)
-    return new_item
+        if result["ticket"]:
+            ticket = result["ticket"]
+
+            st.markdown('<div class="section-label">Ticket ID</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="metric-value">{ticket["ticketId"]}</div>',
+                unsafe_allow_html=True,
+            )
+
+            st.markdown('<div class="section-label">Title</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="ticket-title">{ticket["title"]}</div>',
+                unsafe_allow_html=True,
+            )
+
+            st.markdown('<div class="section-label">Urgency</div>', unsafe_allow_html=True)
+            st.markdown(urgency_badge_html(ticket["urgency"]), unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with right:
+        root_cause, next_steps, suggested_response = parse_resolution_text(result["resolution"])
+
+        st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
+
+        if root_cause:
+            st.markdown(
+                '<div class="section-label">Likely Root Cause</div>', unsafe_allow_html=True
+            )
+            st.write(root_cause)
+
+        if next_steps:
+            st.markdown(
+                '<div class="section-label">Recommended Next Steps</div>', unsafe_allow_html=True
+            )
+            st.write(next_steps)
+        else:
+            st.markdown('<div class="section-label">Resolution Notes</div>', unsafe_allow_html=True)
+            st.write(result["resolution"])
+
+        if suggested_response:
+            st.markdown(
+                '<div class="section-label">Suggested Customer Response</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f'<div class="response-box">{suggested_response}</div>',
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with st.expander("Raw JSON output"):
+        st.json(result)
 
 
-if "ticket_queue" not in st.session_state:
-    st.session_state["ticket_queue"] = []
-
+if "tickets" not in st.session_state:
+    st.session_state.tickets = load_tickets()
+if "selected_ticket_id" not in st.session_state:
+    st.session_state.selected_ticket_id = None
 if "message_input" not in st.session_state:
-    st.session_state["message_input"] = ""
-
+    st.session_state.message_input = ""
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
@@ -235,122 +295,77 @@ with st.sidebar:
     st.header("Examples")
     example_choice = st.selectbox("Load a sample", ["Custom"] + list(EXAMPLES.keys()))
     st.markdown("Use one of these sample issues or paste your own message.")
-    if st.button("Load sample", use_container_width=True):
-        st.session_state["message_input"] = (
-            EXAMPLES.get(example_choice, "") if example_choice != "Custom" else ""
-        )
 
-    queue = sorted(
-        st.session_state["ticket_queue"],
-        key=lambda item: (item["priority_score"], item["last_updated"]),
-        reverse=True,
-    )
+    if example_choice != "Custom":
+        st.session_state.message_input = EXAMPLES[example_choice]
+
     st.divider()
-    st.subheader("Session Ticket Queue")
-    st.caption("Ranked from most important to least important.")
+    st.subheader("Ranked Tickets")
 
-    if queue:
-        queue_options = [
-            f'{idx + 1}. [{item["priority_score"]}] {item["title"]} ({item["urgency"].upper()})'
-            for idx, item in enumerate(queue)
+    ranked = rank_tickets(st.session_state.tickets)
+    if ranked:
+        labels = [
+            f"{idx + 1}. [{(entry.get('ticket') or {}).get('urgency', 'medium').upper()}] "
+            f"{(entry.get('ticket') or {}).get('title', 'No title')}"
+            for idx, entry in enumerate(ranked)
         ]
-        selected_queue_index = st.selectbox(
-            "Select a queued ticket to re-enter",
-            options=list(range(len(queue_options))),
-            format_func=lambda index: queue_options[index],
-        )
-        if st.button("Re-enter selected ticket", use_container_width=True):
-            st.session_state["message_input"] = queue[selected_queue_index]["last_message"]
+        selected_label = st.radio("Open saved ticket", labels, key="selected_ticket_label")
+        selected_index = labels.index(selected_label)
+        st.session_state.selected_ticket_id = ranked[selected_index].get("saved_id")
     else:
-        st.info("No tickets in this session yet. Run triage to build the queue.")
+        st.caption("No saved tickets yet.")
 
-message = st.text_area(
-    "Incoming support message",
-    key="message_input",
-    height=220,
-    placeholder="Paste a support ticket here...",
-)
+with st.form("triage_form", clear_on_submit=True):
+    message = st.text_area(
+        "Incoming support message",
+        key="message_input",
+        height=220,
+        placeholder="Paste a support ticket here...",
+    )
+    submitted = st.form_submit_button("Run triage", type="primary", use_container_width=True)
 
-if st.button("Run triage", type="primary", use_container_width=True):
+if submitted:
     if not message.strip():
         st.warning("Please enter a message.")
     else:
         try:
             with st.spinner("Analyzing issue..."):
-                result = asyncio.run(
-                    run_workflow(WorkflowInput(input_as_text=message.strip()))
-                )
+                result = asyncio.run(run_workflow(WorkflowInput(input_as_text=message.strip())))
+
+            if result.get("ticket"):
+                saved_entry = {
+                    "saved_id": result["ticket"]["ticketId"],
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "message": message.strip(),
+                    "classification": result["classification"],
+                    "ticket": result["ticket"],
+                    "resolution": result["resolution"],
+                }
+                st.session_state.tickets.append(saved_entry)
+                save_tickets(st.session_state.tickets)
+                st.session_state.selected_ticket_id = saved_entry["saved_id"]
 
             st.success("Analysis complete")
-
-            left, right = st.columns([1, 1.2], gap="large")
-
-            with left:
-                st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
-                st.markdown('<div class="metric-label">Classification</div>', unsafe_allow_html=True)
-                st.markdown(
-                    f'<div class="metric-value">{result["classification"].upper()}</div>',
-                    unsafe_allow_html=True,
-                )
-
-                if result["ticket"]:
-                    ticket = result["ticket"]
-                    queued_ticket = upsert_ticket_queue(
-                        message_text=message.strip(),
-                        ticket=ticket,
-                        resolution=result["resolution"],
-                    )
-
-                    st.markdown('<div class="section-label">Ticket ID</div>', unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div class="metric-value">{ticket["ticketId"]}</div>',
-                        unsafe_allow_html=True,
-                    )
-
-                    st.markdown('<div class="section-label">Title</div>', unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div class="ticket-title">{ticket["title"]}</div>',
-                        unsafe_allow_html=True,
-                    )
-
-                    st.markdown('<div class="section-label">Urgency</div>', unsafe_allow_html=True)
-                    st.markdown(urgency_badge_html(ticket["urgency"]), unsafe_allow_html=True)
-
-                    st.markdown('<div class="section-label">Severity score</div>', unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div class="metric-value">{queued_ticket["priority_score"]}</div>',
-                        unsafe_allow_html=True,
-                    )
-
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            with right:
-                root_cause, next_steps, suggested_response = parse_resolution_text(result["resolution"])
-
-                st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
-
-                if root_cause:
-                    st.markdown('<div class="section-label">Likely Root Cause</div>', unsafe_allow_html=True)
-                    st.write(root_cause)
-
-                if next_steps:
-                    st.markdown('<div class="section-label">Recommended Next Steps</div>', unsafe_allow_html=True)
-                    st.write(next_steps)
-                else:
-                    st.markdown('<div class="section-label">Resolution Notes</div>', unsafe_allow_html=True)
-                    st.write(result["resolution"])
-
-                if suggested_response:
-                    st.markdown('<div class="section-label">Suggested Customer Response</div>', unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div class="response-box">{suggested_response}</div>',
-                        unsafe_allow_html=True,
-                    )
-
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            with st.expander("Raw JSON output"):
-                st.json(result)
-
+            render_result(result)
         except Exception as e:
             st.error(f"Error: {e}")
+elif st.session_state.selected_ticket_id:
+    selected = next(
+        (
+            entry
+            for entry in st.session_state.tickets
+            if entry.get("saved_id") == st.session_state.selected_ticket_id
+        ),
+        None,
+    )
+    if selected:
+        st.info(
+            f"Viewing saved ticket: {(selected.get('ticket') or {}).get('ticketId', 'Unknown')}"
+        )
+        render_result(
+            {
+                "classification": selected.get("classification", "ticket"),
+                "ticket": selected.get("ticket"),
+                "resolution": selected.get("resolution", ""),
+            }
+        )
