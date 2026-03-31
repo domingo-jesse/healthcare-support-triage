@@ -160,7 +160,7 @@ st.markdown(
         }
         .queue-ticket-button div[data-testid="stButton"] > button {
             border-radius: 10px;
-            border: 1px solid transparent;
+            border: 1px solid var(--ticket-border, transparent);
             min-height: 50px;
             padding: 0.55rem 0.65rem;
             text-align: left;
@@ -168,26 +168,37 @@ st.markdown(
             font-weight: 600;
             box-shadow: none;
             transition: all 120ms ease-in-out;
+            background: var(--ticket-bg, #ffffff);
+            color: var(--ticket-text, var(--text-primary));
         }
         .queue-ticket-button div[data-testid="stButton"] > button:hover {
             transform: translateY(-1px);
-            filter: brightness(0.98);
+            filter: brightness(0.96);
         }
         .queue-ticket-button.selected div[data-testid="stButton"] > button {
-            border-color: var(--accent);
-            box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+            border-color: var(--ticket-ring, var(--accent));
+            box-shadow: inset 0 0 0 1px var(--ticket-ring-soft, rgba(59, 130, 246, 0.25));
         }
-        .queue-ticket-button.urgency-high div[data-testid="stButton"] > button {
-            background: #fee2e2;
-            color: #7f1d1d;
+        .queue-ticket-button.urgency-high {
+            --ticket-bg: #fee2e2;
+            --ticket-text: #7f1d1d;
+            --ticket-border: #fecaca;
+            --ticket-ring: #dc2626;
+            --ticket-ring-soft: rgba(220, 38, 38, 0.28);
         }
-        .queue-ticket-button.urgency-medium div[data-testid="stButton"] > button {
-            background: #fef3c7;
-            color: #78350f;
+        .queue-ticket-button.urgency-medium {
+            --ticket-bg: #fef3c7;
+            --ticket-text: #78350f;
+            --ticket-border: #fde68a;
+            --ticket-ring: #d97706;
+            --ticket-ring-soft: rgba(217, 119, 6, 0.28);
         }
-        .queue-ticket-button.urgency-low div[data-testid="stButton"] > button {
-            background: #dbeafe;
-            color: #1e3a8a;
+        .queue-ticket-button.urgency-low {
+            --ticket-bg: #dbeafe;
+            --ticket-text: #1e3a8a;
+            --ticket-border: #bfdbfe;
+            --ticket-ring: #2563eb;
+            --ticket-ring-soft: rgba(37, 99, 235, 0.28);
         }
         .queue-move-control {
             margin-top: 0.5rem;
