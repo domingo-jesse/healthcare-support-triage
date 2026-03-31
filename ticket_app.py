@@ -504,6 +504,28 @@ def render_result(result: dict, submitted_request: str = "") -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
 
+def render_empty_result_placeholder() -> None:
+    left, right = st.columns([1, 1.2], gap="large")
+
+    with left:
+        st.markdown('<div class="card"><h3>📌 Overview</h3>', unsafe_allow_html=True)
+        st.caption("No ticket selected yet.")
+        st.markdown(
+            '<div class="mini-note">Run a new triage search below or choose a ticket from the queue to view overview details.</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with right:
+        st.markdown('<div class="card"><h3>🧠 Resolution</h3>', unsafe_allow_html=True)
+        st.caption("Resolution output will appear here.")
+        st.markdown(
+            '<div class="mini-note">Once a ticket is analyzed, likely root cause, recommended steps, and suggested response will display in this panel.</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
 if "tickets" not in st.session_state:
     st.session_state.tickets = load_tickets()
     for entry in st.session_state.tickets:
@@ -518,47 +540,6 @@ st.markdown(
     '<div class="app-subtitle">Simple triage queue with a clean service-desk layout and status tracking.</div>',
     unsafe_allow_html=True,
 )
-
-with st.form("triage_form", clear_on_submit=True):
-    message = st.text_area(
-        "Incoming support message",
-        key="message_input",
-        height=190,
-        placeholder="Paste a support ticket here...",
-    )
-    submitted = st.form_submit_button("Run triage", type="primary", use_container_width=True)
-
-if submitted:
-    if not message.strip():
-        st.warning("Please enter a message.")
-    else:
-        try:
-            with st.spinner("Analyzing issue..."):
-                result = asyncio.run(run_workflow(WorkflowInput(input_as_text=message.strip())))
-
-            if result.get("ticket"):
-                result["ticket"]["urgency"] = normalize_urgency(result["ticket"].get("urgency"))
-                normalized_ticket_id = ensure_unique_ticket_id(
-                    result["ticket"].get("ticketId"), st.session_state.tickets
-                )
-                result["ticket"]["ticketId"] = normalized_ticket_id
-
-                saved_entry = {
-                    "saved_id": normalized_ticket_id,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "status": "new",
-                    "message": message.strip(),
-                    "classification": result["classification"],
-                    "ticket": result["ticket"],
-                    "resolution": result["resolution"],
-                }
-                st.session_state.tickets.append(saved_entry)
-                save_tickets(st.session_state.tickets)
-                st.session_state.selected_ticket_id = saved_entry["saved_id"]
-
-            st.success("Analysis complete")
-        except Exception as e:
-            st.error(f"Error: {e}")
 
 all_tickets = list(st.session_state.tickets)
 for ticket in all_tickets:
@@ -606,42 +587,6 @@ for ticket in filtered_tickets:
         st.rerun()
 
 if st.session_state.selected_ticket_id:
-    selected_ticket = next(
-        (entry for entry in st.session_state.tickets if entry.get("saved_id") == st.session_state.selected_ticket_id),
-        None,
-    )
-    if selected_ticket:
-        selected_urgency = normalize_urgency((selected_ticket.get("ticket") or {}).get("urgency"))
-        selected_status = normalize_status(selected_ticket.get("status"))
-        st.markdown("### Selected ticket controls")
-        ctrl_cols = st.columns([1, 1], gap="medium")
-        with ctrl_cols[0]:
-            urgency_options = ["high", "medium", "low"]
-            updated_urgency = st.selectbox(
-                "Urgency",
-                options=urgency_options,
-                index=urgency_options.index(selected_urgency),
-                format_func=lambda value: {"high": "HIGH", "medium": "MEDIUM", "low": "LOW"}[value],
-                key=f"urgency_selected_{st.session_state.selected_ticket_id}",
-            )
-            if updated_urgency != selected_urgency:
-                selected_ticket.setdefault("ticket", {})["urgency"] = updated_urgency
-                save_tickets(st.session_state.tickets)
-                st.rerun()
-        with ctrl_cols[1]:
-            updated_status = st.selectbox(
-                "Status",
-                options=list(STATUS_STAGES),
-                format_func=lambda s: STATUS_LABELS[s],
-                index=STATUS_STAGES.index(selected_status),
-                key=f"status_selected_{st.session_state.selected_ticket_id}",
-            )
-            if updated_status != selected_status:
-                selected_ticket["status"] = updated_status
-                save_tickets(st.session_state.tickets)
-                st.rerun()
-
-if st.session_state.selected_ticket_id:
     selected = next(
         (
             entry
@@ -660,3 +605,50 @@ if st.session_state.selected_ticket_id:
             },
             submitted_request=selected.get("message", ""),
         )
+    else:
+        render_empty_result_placeholder()
+else:
+    render_empty_result_placeholder()
+
+st.markdown("### 🔎 New ticket search")
+with st.form("triage_form", clear_on_submit=True):
+    message = st.text_area(
+        "Incoming support message",
+        key="message_input",
+        height=190,
+        placeholder="Paste a support ticket here...",
+    )
+    submitted = st.form_submit_button("Run triage", type="primary", use_container_width=True)
+
+if submitted:
+    if not message.strip():
+        st.warning("Please enter a message.")
+    else:
+        try:
+            with st.spinner("Analyzing issue..."):
+                result = asyncio.run(run_workflow(WorkflowInput(input_as_text=message.strip())))
+
+            if result.get("ticket"):
+                result["ticket"]["urgency"] = normalize_urgency(result["ticket"].get("urgency"))
+                normalized_ticket_id = ensure_unique_ticket_id(
+                    result["ticket"].get("ticketId"), st.session_state.tickets
+                )
+                result["ticket"]["ticketId"] = normalized_ticket_id
+
+                saved_entry = {
+                    "saved_id": normalized_ticket_id,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "status": "new",
+                    "message": message.strip(),
+                    "classification": result["classification"],
+                    "ticket": result["ticket"],
+                    "resolution": result["resolution"],
+                }
+                st.session_state.tickets.append(saved_entry)
+                save_tickets(st.session_state.tickets)
+                st.session_state.selected_ticket_id = saved_entry["saved_id"]
+
+            st.success("Analysis complete")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error: {e}")
