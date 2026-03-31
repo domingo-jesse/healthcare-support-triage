@@ -628,7 +628,7 @@ def render_result(
 ) -> tuple[str, str, str, str]:
     ticket = result.get("ticket") or {}
     st.markdown('<div class="overview-row-box"><div class="overview-row-grid">', unsafe_allow_html=True)
-    col_classification, col_ticket_id, col_title, col_urgency, col_status = st.columns(5)
+    col_classification, col_ticket_id, col_title, col_urgency, col_status = st.columns([1, 1, 2.2, 1, 1])
     with col_classification:
         st.markdown('<div class="section-label">Classification</div>', unsafe_allow_html=True)
         selected_classification = st.selectbox(
@@ -647,10 +647,11 @@ def render_result(
         )
     with col_title:
         st.markdown('<div class="section-label">Title</div>', unsafe_allow_html=True)
-        edited_title = st.text_input(
+        edited_title = st.text_area(
             "Title",
             value=ticket.get("title", "Untitled ticket"),
             key=f"{key_prefix}_title_{ticket.get('ticketId', 'unknown')}",
+            height=88,
             label_visibility="collapsed",
         )
     with col_urgency:
