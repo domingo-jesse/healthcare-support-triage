@@ -670,6 +670,8 @@ if "selected_ticket_id" not in st.session_state:
     st.session_state.selected_ticket_id = None
 if "message_input" not in st.session_state:
     st.session_state.message_input = ""
+if "queue_stat_focus" not in st.session_state:
+    st.session_state.queue_stat_focus = "all"
 
 st.markdown('<div class="app-title">🩺 Healthcare Support Triage</div>', unsafe_allow_html=True)
 st.markdown(
@@ -692,68 +694,140 @@ left_col, middle_col, right_col = st.columns([1.2, 1.25, 1.55], gap="large")
 
 with left_col:
     st.markdown('<div class="three-col-header">📊 Queue stats</div>', unsafe_allow_html=True)
-    st.markdown(
-        f"""
-        <div class="stats-grid" style="grid-template-columns: 1fr; margin-bottom: 0.5rem;">
-          <div class="stat-box"><div class="stat-label">Total Tickets</div><div class="stat-value">{len(filtered_tickets)}</div></div>
-          <div class="stat-box"><div class="stat-label">Open Queue</div><div class="stat-value">{len(open_tickets)}</div></div>
-          <div class="stat-box"><div class="stat-label">Completed/Closed</div><div class="stat-value">{len(closed_tickets)}</div></div>
-          <div class="stat-box"><div class="stat-label">High Urgency</div><div class="stat-value">{sum(1 for t in filtered_tickets if normalize_urgency((t.get('ticket') or {}).get('urgency')) == 'high')}</div></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    high_urgency_count = sum(
+        1
+        for t in filtered_tickets
+        if normalize_urgency((t.get("ticket") or {}).get("urgency")) == "high"
     )
+    queue_stat_items = [
+        ("total", "Total Tickets", len(filtered_tickets)),
+        ("open", "Open Queue", len(open_tickets)),
+        ("closed", "Completed/Closed", len(closed_tickets)),
+        ("high", "High Urgency", high_urgency_count),
+    ]
+    for stat_key, stat_label, stat_value in queue_stat_items:
+        if st.button(
+            f"{stat_label}\n{stat_value}",
+            key=f"queue_stat_{stat_key}",
+            use_container_width=True,
+        ):
+            st.session_state.queue_stat_focus = stat_key
+            st.rerun()
+
     st.markdown('<div class="three-col-header">🎫 Queues</div>', unsafe_allow_html=True)
     st.caption(f"{len(filtered_tickets)} total ticket(s)")
+
+    queue_views = {
+        "all": "All tickets",
+        "open": "Open tickets only",
+        "closed": "Closed tickets only",
+        "high": "High urgency only",
+    }
+    selected_queue_view = st.selectbox(
+        "Queue scope",
+        options=list(queue_views.keys()),
+        index=list(queue_views.keys()).index(st.session_state.queue_stat_focus),
+        format_func=lambda opt: queue_views[opt],
+        key="queue_scope_select",
+    )
+    if selected_queue_view != st.session_state.queue_stat_focus:
+        st.session_state.queue_stat_focus = selected_queue_view
+        st.rerun()
+
+    queue_sort_option = st.selectbox(
+        "Queue sort",
+        options=("urgency", "newest", "oldest"),
+        format_func=lambda opt: {
+            "urgency": "Urgency",
+            "newest": "Newest first",
+            "oldest": "Oldest first",
+        }[opt],
+        key="queue_sort_select",
+    )
+    queue_search_text = st.text_input(
+        "Search tickets",
+        placeholder="Search by ticket number or title",
+        key="queue_search_input",
+    ).strip()
 
     if not filtered_tickets:
         st.caption("No tickets match the current queue.")
 
     urgency_icons = {"high": "🟥", "medium": "🟨", "low": "🟦"}
-    urgency_labels = {"high": "High urgency", "medium": "Medium urgency", "low": "Low urgency"}
+    urgency_labels = {"high": "High", "medium": "Medium", "low": "Low"}
+
+    def apply_queue_filters(tickets: list[dict]) -> list[dict]:
+        scoped = list(tickets)
+        focus = st.session_state.queue_stat_focus
+        if focus == "open":
+            scoped = [ticket for ticket in scoped if normalize_status(ticket.get("status")) in OPEN_STATUSES]
+        elif focus == "closed":
+            scoped = [ticket for ticket in scoped if normalize_status(ticket.get("status")) == "completed"]
+        elif focus == "high":
+            scoped = [
+                ticket
+                for ticket in scoped
+                if normalize_urgency((ticket.get("ticket") or {}).get("urgency")) == "high"
+            ]
+
+        if queue_search_text:
+            query = queue_search_text.lower()
+            scoped = [
+                ticket
+                for ticket in scoped
+                if query in ticket.get("saved_id", "").lower()
+                or query in ((ticket.get("ticket") or {}).get("title", "").lower())
+            ]
+
+        if queue_sort_option == "newest":
+            scoped = sorted(scoped, key=lambda t: t.get("created_at", ""), reverse=True)
+        elif queue_sort_option == "oldest":
+            scoped = sorted(scoped, key=lambda t: t.get("created_at", ""))
+        else:
+            scoped = sorted(
+                scoped,
+                key=lambda t: (
+                    URGENCY_RANK.get(
+                        normalize_urgency((t.get("ticket") or {}).get("urgency")),
+                        1,
+                    ),
+                    t.get("created_at", ""),
+                ),
+            )
+        return scoped
 
     def render_queue_section(section_key: str, section_title: str, tickets: list[dict]) -> None:
+        filtered_section_tickets = apply_queue_filters(tickets)
         st.markdown(f"#### {section_title} ({len(tickets)})")
-        if not tickets:
+        if not filtered_section_tickets:
             st.caption("No tickets in this queue.")
             return
 
-        tickets_by_urgency: dict[str, list[dict]] = {"high": [], "medium": [], "low": []}
-        for ticket in tickets:
+        for ticket in filtered_section_tickets:
+            ticket_id = ticket.get("saved_id", "")
+            title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
             urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
-            tickets_by_urgency[urgency].append(ticket)
-
-        for urgency in ("high", "medium", "low"):
-            urgency_tickets = tickets_by_urgency[urgency]
-            if not urgency_tickets:
-                continue
-
-            with st.expander(
-                f"{urgency_icons[urgency]} {urgency_labels[urgency]} ({len(urgency_tickets)})",
-                expanded=True,
+            queue_title = f"{urgency_icons[urgency]} [{urgency_labels[urgency]}] {title}"
+            st.markdown(
+                f'<div class="queue-item-row queue-ticket-button {urgency}">',
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                queue_title,
+                key=f"queue_{section_key}_{ticket_id}",
+                use_container_width=True,
+                help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
             ):
-                for ticket in urgency_tickets:
-                    ticket_id = ticket.get("saved_id", "")
-                    title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
-                    queue_title = f"{urgency_icons[urgency]} {title}"
-                    st.markdown(
-                        f'<div class="queue-item-row queue-ticket-button {urgency}">',
-                        unsafe_allow_html=True,
-                    )
-                    if st.button(
-                        queue_title,
-                        key=f"queue_{section_key}_{ticket_id}",
-                        use_container_width=True,
-                        help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-                    ):
-                        st.session_state.selected_ticket_id = ticket_id
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
+                st.session_state.selected_ticket_id = ticket_id
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
     with st.container(height=640, border=False):
-        render_queue_section("open", "🟢 Open Queue", open_tickets)
+        with st.expander("🟢 Open Queue", expanded=True):
+            render_queue_section("open", "Open tickets", open_tickets)
         st.markdown("---")
-        render_queue_section("closed", "✅ Completed/Closed Queue", closed_tickets)
+        with st.expander("✅ Completed/Closed Queue", expanded=True):
+            render_queue_section("closed", "Closed tickets", closed_tickets)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
