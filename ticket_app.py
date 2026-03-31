@@ -158,6 +158,13 @@ def rank_tickets(tickets: list[dict]) -> list[dict]:
     )
 
 
+URGENCY_SCORES = {
+    "high": 100,
+    "medium": 60,
+    "low": 30,
+}
+
+
 def urgency_badge_html(urgency: str) -> str:
     urgency = (urgency or "").lower()
     css_class = {
