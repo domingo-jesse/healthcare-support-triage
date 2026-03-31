@@ -215,11 +215,11 @@ st.markdown(
             border: 1px solid var(--border);
             border-radius: 12px;
             background: var(--bg-secondary);
-            padding: 0.8rem;
+            padding: 0.55rem 0.65rem;
             box-shadow: var(--shadow);
         }
-        .stat-label { font-size: 0.8rem; color: var(--text-muted); }
-        .stat-value { font-size: 1.3rem; color: var(--text-primary); font-weight: 800; }
+        .stat-label { font-size: 0.74rem; color: var(--text-muted); }
+        .stat-value { font-size: 1.08rem; color: var(--text-primary); font-weight: 800; line-height: 1.2; }
         .board-column {
             border: 1px solid var(--border);
             border-radius: 16px;
@@ -631,7 +631,6 @@ status_counts = {status: 0 for status in STATUS_STAGES}
 for ticket in filtered_tickets:
     status_counts[normalize_status(ticket.get("status"))] += 1
 
-st.sidebar.markdown("## 🎫 Ticket Queue")
 st.sidebar.caption(f"{len(filtered_tickets)} ticket(s)")
 st.sidebar.markdown("### 📊 Ticket Stats")
 st.sidebar.markdown(
@@ -645,7 +644,7 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True,
 )
-st.sidebar.caption("Queue view replaces kanban movement controls for easier triage updates.")
+st.sidebar.markdown("## 🎫 Ticket Queue")
 
 if not filtered_tickets:
     st.sidebar.caption("No tickets match the current filters.")
@@ -656,23 +655,14 @@ for ticket in filtered_tickets:
     title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
     created_display = (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
     ticket_status = normalize_status(ticket.get("status"))
-    st.sidebar.markdown(
-        f"""
-        <div class="urgency-ticket-card {urgency}">
-            <div class="urgency-ticket-title">{html.escape(title)}</div>
-            <div class="urgency-ticket-meta">{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
     queue_label = (
-        f"Open #{ticket_id[-6:] if ticket_id else 'N/A'}"
+        f"{title}\n{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}"
     )
     if st.sidebar.button(
         queue_label,
         key=f"queue_open_{ticket_id}",
         use_container_width=True,
-        help="Open this ticket to view submitted request and suggested response.",
+        help=f"Ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
     ):
         st.session_state.selected_ticket_id = ticket_id
         st.rerun()
