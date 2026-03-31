@@ -817,11 +817,6 @@ with left_col:
                     f'<div class="queue-section-title-lg">{queue_name}</div>',
                     unsafe_allow_html=True,
                 )
-            else:
-                st.markdown(
-                    f'<div class="queue-section-title-sm">{queue_name}</div>',
-                    unsafe_allow_html=True,
-                )
             st.caption(queue_caption)
             with st.container(height=220, border=False):
                 render_ticket_buttons(queue_key, queue_tickets)
