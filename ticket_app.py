@@ -601,26 +601,83 @@ with left_col:
         if not tickets:
             st.caption("No tickets in this section.")
             return
+        urgency_theme = {
+            "high": {
+                "bg": "#fee2e2",
+                "text": "#7f1d1d",
+                "border": "#fecaca",
+                "selected_bg": "#fecaca",
+                "ring": "#dc2626",
+                "ring_soft": "rgba(220, 38, 38, 0.28)",
+            },
+            "medium": {
+                "bg": "#fef3c7",
+                "text": "#78350f",
+                "border": "#fde68a",
+                "selected_bg": "#fde68a",
+                "ring": "#d97706",
+                "ring_soft": "rgba(217, 119, 6, 0.28)",
+            },
+            "low": {
+                "bg": "#dbeafe",
+                "text": "#1e3a8a",
+                "border": "#bfdbfe",
+                "selected_bg": "#bfdbfe",
+                "ring": "#2563eb",
+                "ring_soft": "rgba(37, 99, 235, 0.28)",
+            },
+        }
         for idx, ticket in enumerate(tickets):
             ticket_id = ticket.get("saved_id", "")
             widget_suffix = f"{ticket_id or 'noid'}_{idx}"
             title = clean_ticket_title((ticket.get("ticket") or {}).get("title"))
             urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
             is_selected = st.session_state.selected_ticket_id == ticket_id
-            selected_class = "selected" if is_selected else ""
+            widget_key = f"queue_{section_key}_{widget_suffix}"
+            theme = urgency_theme.get(urgency, urgency_theme["low"])
+            selection_css = ""
+            if is_selected:
+                selection_css = f"""
+                .st-key-{widget_key} button {{
+                    border-color: {theme['ring']} !important;
+                    box-shadow: inset 0 0 0 1px {theme['ring_soft']} !important;
+                    background: {theme['selected_bg']} !important;
+                }}
+                """
             st.markdown(
-                f'<div class="queue-item-row queue-ticket-button urgency-{urgency} {selected_class}">',
+                f"""
+                <style>
+                .st-key-{widget_key} button {{
+                    border-radius: 10px;
+                    border: 1px solid {theme['border']} !important;
+                    min-height: 50px;
+                    padding: 0.55rem 0.65rem;
+                    text-align: left;
+                    font-size: 0.86rem;
+                    font-weight: 600;
+                    box-shadow: none;
+                    transition: all 120ms ease-in-out;
+                    background: {theme['bg']} !important;
+                    color: {theme['text']} !important;
+                    white-space: normal;
+                }}
+                .st-key-{widget_key} button:hover {{
+                    transform: translateY(-1px);
+                    filter: brightness(0.96);
+                }}
+                {selection_css}
+                </style>
+                """,
                 unsafe_allow_html=True,
             )
             if st.button(
                 title,
-                key=f"queue_{section_key}_{widget_suffix}",
+                key=widget_key,
                 use_container_width=True,
                 help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
             ):
                 st.session_state.selected_ticket_id = ticket_id
                 st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
 
     open_tab, blocked_tab, archive_tab, deleted_tab = st.tabs(
         ["🟢 Open Queue", "⛔ Blocked Queue", "📦 Archived Queue", "🗑️ Deleted / Spam"]
