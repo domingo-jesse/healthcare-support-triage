@@ -341,18 +341,18 @@ st.markdown(
             padding: 0.45rem 0.55rem;
             text-align: left;
             font-size: 0.8rem;
-            background: rgba(15, 23, 42, 0.02);
+            background: rgba(15, 23, 42, 0.05);
         }
         .queue-ticket-button.high div[data-testid="stButton"] > button {
-            background: linear-gradient(145deg, rgba(254, 226, 226, 0.95) 0%, rgba(252, 165, 165, 0.24) 100%);
+            background: rgba(239, 68, 68, 0.18);
             border-color: rgba(239, 68, 68, 0.35);
         }
         .queue-ticket-button.medium div[data-testid="stButton"] > button {
-            background: linear-gradient(145deg, rgba(254, 243, 199, 0.98) 0%, rgba(252, 211, 77, 0.2) 100%);
+            background: rgba(251, 191, 36, 0.18);
             border-color: rgba(245, 158, 11, 0.35);
         }
         .queue-ticket-button.low div[data-testid="stButton"] > button {
-            background: linear-gradient(145deg, rgba(219, 234, 254, 0.98) 0%, rgba(147, 197, 253, 0.2) 100%);
+            background: rgba(59, 130, 246, 0.16);
             border-color: rgba(59, 130, 246, 0.33);
         }
         .queue-ticket-button div[data-testid="stButton"] > button:hover {
@@ -706,34 +706,27 @@ with left_col:
             if not urgency_tickets:
                 continue
 
-            st.markdown(
-                f'<div class="section-label">{urgency_icons[urgency]} {urgency_labels[urgency]} ({len(urgency_tickets)})</div>',
-                unsafe_allow_html=True,
-            )
-            for ticket in urgency_tickets:
-                ticket_id = ticket.get("saved_id", "")
-                title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
-                created_display = (
-                    (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
-                )
-                ticket_status = normalize_status(ticket.get("status"))
-                classification = (ticket.get("classification") or "ticket").strip().lower()
-                classification_label = "SPAM" if classification == "spam" else "TICKET"
-                queue_title = f"{urgency_icons[urgency]} [{classification_label}] {title}"
-                queue_meta = f"{urgency.upper()} · {STATUS_LABELS[ticket_status]} · {created_display}"
-                st.markdown(
-                    f'<div class="queue-item-row queue-ticket-button {urgency}">',
-                    unsafe_allow_html=True,
-                )
-                if st.button(
-                    f"{queue_title}\n{queue_meta}",
-                    key=f"queue_open_{ticket_id}",
-                    use_container_width=True,
-                    help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-                ):
-                    st.session_state.selected_ticket_id = ticket_id
-                    st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
+            with st.expander(
+                f"{urgency_icons[urgency]} {urgency_labels[urgency]} ({len(urgency_tickets)})",
+                expanded=True,
+            ):
+                for ticket in urgency_tickets:
+                    ticket_id = ticket.get("saved_id", "")
+                    title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
+                    queue_title = f"{urgency_icons[urgency]} {title}"
+                    st.markdown(
+                        f'<div class="queue-item-row queue-ticket-button {urgency}">',
+                        unsafe_allow_html=True,
+                    )
+                    if st.button(
+                        queue_title,
+                        key=f"queue_open_{ticket_id}",
+                        use_container_width=True,
+                        help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
+                    ):
+                        st.session_state.selected_ticket_id = ticket_id
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
