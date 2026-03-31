@@ -39,7 +39,7 @@ st.markdown(
         .block-container {
             padding-top: 1.25rem;
             padding-bottom: 2rem;
-            max-width: 1200px;
+            max-width: 1480px;
             margin: 0 auto;
             padding-left: 1.5rem;
             padding-right: 1.5rem;
@@ -255,6 +255,29 @@ st.markdown(
         }
         .queue-move-control {
             margin-top: 0.5rem;
+        }
+        .queue-section-title-lg {
+            font-size: 1.9rem;
+            line-height: 1.15;
+            font-weight: 800;
+            margin: 0.2rem 0 0.35rem;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+        }
+        .queue-section-title-sm {
+            font-size: 1rem;
+            line-height: 1.2;
+            font-weight: 700;
+            margin: 0.25rem 0 0.2rem;
+            color: #334155;
+        }
+        .scroll-panel {
+            padding-right: 0.2rem;
+        }
+        .resolution-scroll {
+            max-height: 260px;
+            overflow-y: auto;
+            padding-right: 0.25rem;
         }
         @keyframes floatGlow {
             0%, 100% { transform: translate(0, 0) scale(1); }
@@ -502,7 +525,9 @@ def render_result(
     with st.container():
         st.markdown('<div class="panel-card">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Resolution</div>', unsafe_allow_html=True)
+        st.markdown('<div class="resolution-scroll">', unsafe_allow_html=True)
         st.write(result["resolution"])
+        st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
@@ -615,7 +640,7 @@ closed_tickets = rank_tickets(list(st.session_state.closed_tickets))
 deleted_tickets = rank_tickets(list(st.session_state.deleted_tickets))
 all_tickets = open_tickets + closed_tickets + deleted_tickets
 
-left_col, middle_col, right_col = st.columns([1, 2, 1], gap="large")
+left_col, middle_col, right_col = st.columns([1.15, 1.45, 1.4], gap="large")
 
 with left_col:
     st.markdown('<div class="three-col-header">🎫 Ticket queues</div>', unsafe_allow_html=True)
@@ -780,15 +805,28 @@ with left_col:
         queue_sections,
         key=lambda section: 0 if section[2] == st.session_state.active_queue else 1,
     )
-    for queue_name, queue_caption, queue_key, queue_tickets in ordered_sections:
-        st.markdown(f"#### {queue_name}")
-        st.caption(queue_caption)
-        with st.container(height=180, border=False):
-            render_ticket_buttons(queue_key, queue_tickets)
+    with st.container(height=760, border=False):
+        st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
+        for queue_name, queue_caption, queue_key, queue_tickets in ordered_sections:
+            if queue_key == st.session_state.active_queue:
+                st.markdown(
+                    f'<div class="queue-section-title-lg">{queue_name}</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f'<div class="queue-section-title-sm">{queue_name}</div>',
+                    unsafe_allow_html=True,
+                )
+            st.caption(queue_caption)
+            with st.container(height=220, border=False):
+                render_ticket_buttons(queue_key, queue_tickets)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
-    with st.container(border=False):
+    with st.container(height=760, border=False):
+        st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
         if st.session_state.selected_ticket_id:
             selected = next(
                 (
@@ -891,6 +929,7 @@ with middle_col:
                 render_empty_result_placeholder()
         else:
             render_empty_result_placeholder()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 with right_col:
     st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
