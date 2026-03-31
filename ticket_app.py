@@ -227,7 +227,7 @@ st.markdown(
         }
         .queue-head {
             display: grid;
-            grid-template-columns: 72px 120px 1.9fr 130px 130px 165px 130px 120px;
+            grid-template-columns: 72px 120px 2fr 190px 165px 130px 120px;
             gap: 0.5rem;
             padding: 0.75rem 1rem;
             background: #f9fafb;
@@ -240,7 +240,7 @@ st.markdown(
         }
         .queue-row {
             display: grid;
-            grid-template-columns: 72px 120px 1.9fr 130px 130px 165px 130px 120px;
+            grid-template-columns: 72px 120px 2fr 190px 165px 130px 120px;
             gap: 0.5rem;
             align-items: center;
             padding: 0.7rem 1rem;
@@ -274,7 +274,7 @@ st.markdown(
         }
         @media (max-width: 1200px) {
             .queue-head, .queue-row {
-                grid-template-columns: 62px 100px 1.5fr 110px 110px 150px 110px 110px;
+                grid-template-columns: 62px 100px 1.7fr 160px 150px 110px 110px;
                 font-size: 0.82rem;
             }
         }
@@ -649,7 +649,6 @@ st.markdown(
         <div>Select</div>
         <div>Ticket ID</div>
         <div>Type</div>
-        <div>Priority</div>
         <div>Urgency</div>
         <div>Status</div>
         <div>Created</div>
@@ -670,7 +669,7 @@ for ticket in filtered_tickets:
     created_display = (ticket.get("created_at") or "").replace("T", " ").split(".")[0][:16] or "N/A"
     ticket_status = normalize_status(ticket.get("status"))
 
-    row_cols = st.columns([0.8, 1, 2.6, 1, 1, 1.7, 1.3, 1.1], gap="small")
+    row_cols = st.columns([0.8, 1, 2.8, 1.4, 1.7, 1.3, 1.1], gap="small")
     with row_cols[0]:
         is_closed = st.checkbox(
             "Closed",
@@ -704,20 +703,21 @@ for ticket in filtered_tickets:
             st.session_state.selected_ticket_id = ticket_id
             st.rerun()
     with row_cols[3]:
-        selected_priority = st.selectbox(
-            "Priority",
-            options=["high", "medium", "low"],
-            index=["high", "medium", "low"].index(urgency),
-            key=f"priority_{ticket_id}",
+        urgency_options = ["high", "medium", "low"]
+        selected_urgency = st.selectbox(
+            "Urgency",
+            options=urgency_options,
+            index=urgency_options.index(urgency),
+            format_func=lambda value: {"high": "HIGH", "medium": "MEDUIM", "low": "LOW"}[value],
+            key=f"urgency_{ticket_id}",
             label_visibility="collapsed",
         )
-        if selected_priority != urgency:
-            (ticket.get("ticket") or {})["urgency"] = selected_priority
+        st.markdown(urgency_badge_html(selected_urgency), unsafe_allow_html=True)
+        if selected_urgency != urgency:
+            (ticket.get("ticket") or {})["urgency"] = selected_urgency
             save_tickets(st.session_state.tickets)
             st.rerun()
     with row_cols[4]:
-        st.markdown(urgency_badge_html(selected_priority), unsafe_allow_html=True)
-    with row_cols[5]:
         selected_status = st.selectbox(
             "Status",
             options=list(STATUS_STAGES),
@@ -730,9 +730,9 @@ for ticket in filtered_tickets:
             ticket["status"] = selected_status
             save_tickets(st.session_state.tickets)
             st.rerun()
-    with row_cols[6]:
+    with row_cols[5]:
         st.markdown(f'<div class="ticket-date">{html.escape(created_display)}</div>', unsafe_allow_html=True)
-    with row_cols[7]:
+    with row_cols[6]:
         if st.button("Open ticket", key=f"open_{ticket_id}", use_container_width=True):
             st.session_state.selected_ticket_id = ticket_id
             st.rerun()
