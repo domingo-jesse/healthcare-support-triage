@@ -620,16 +620,6 @@ with left_col:
         f"{len(active_open_tickets)} open · {len(blocked_tickets)} blocked · {len(closed_tickets)} archived · {len(deleted_tickets)} deleted/spam"
     )
 
-    urgency_labels = {"high": "High", "medium": "Medium", "low": "Low"}
-    def group_by_urgency(tickets: list[dict]) -> dict[str, list[dict]]:
-        return {
-            level: [t for t in tickets if normalize_urgency((t.get("ticket") or {}).get("urgency")) == level]
-            for level in ("high", "medium", "low")
-        }
-
-    grouped_open_tickets = group_by_urgency(active_open_tickets)
-    grouped_blocked_tickets = group_by_urgency(blocked_tickets)
-
     def move_ticket_to_queue(ticket: dict, target_queue: str) -> None:
         ticket_id = ticket.get("saved_id")
         if not ticket_id:
@@ -687,13 +677,41 @@ with left_col:
             title = clean_ticket_title((ticket.get("ticket") or {}).get("title"))
             is_selected = st.session_state.selected_ticket_id == ticket_id
             widget_key = f"queue_{section_key}_{widget_suffix}"
+            urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
+            urgency_styles = {
+                "high": {
+                    "border": "#fecaca",
+                    "bg": "#fef2f2",
+                    "text": "#991b1b",
+                    "selected_border": "#dc2626",
+                    "selected_shadow": "rgba(220, 38, 38, 0.25)",
+                    "selected_bg": "#fee2e2",
+                },
+                "medium": {
+                    "border": "#fed7aa",
+                    "bg": "#fff7ed",
+                    "text": "#9a3412",
+                    "selected_border": "#ea580c",
+                    "selected_shadow": "rgba(234, 88, 12, 0.25)",
+                    "selected_bg": "#ffedd5",
+                },
+                "low": {
+                    "border": "#bbf7d0",
+                    "bg": "#f0fdf4",
+                    "text": "#166534",
+                    "selected_border": "#16a34a",
+                    "selected_shadow": "rgba(22, 163, 74, 0.25)",
+                    "selected_bg": "#dcfce7",
+                },
+            }
+            button_style = urgency_styles.get(urgency, urgency_styles["medium"])
             selection_css = ""
             if is_selected:
                 selection_css = f"""
                 .st-key-{widget_key} button {{
-                    border-color: var(--accent) !important;
-                    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.25) !important;
-                    background: var(--accent-soft) !important;
+                    border-color: {button_style["selected_border"]} !important;
+                    box-shadow: inset 0 0 0 1px {button_style["selected_shadow"]} !important;
+                    background: {button_style["selected_bg"]} !important;
                 }}
                 """
             st.markdown(
@@ -701,7 +719,7 @@ with left_col:
                 <style>
                 .st-key-{widget_key} button {{
                     border-radius: 10px;
-                    border: 1px solid var(--border) !important;
+                    border: 1px solid {button_style["border"]} !important;
                     min-height: 50px;
                     padding: 0.55rem 0.65rem;
                     text-align: left;
@@ -709,8 +727,8 @@ with left_col:
                     font-weight: 600;
                     box-shadow: none;
                     transition: all 120ms ease-in-out;
-                    background: #ffffff !important;
-                    color: var(--text-primary) !important;
+                    background: {button_style["bg"]} !important;
+                    color: {button_style["text"]} !important;
                     white-space: normal;
                 }}
                 .st-key-{widget_key} button:hover {{
@@ -737,15 +755,11 @@ with left_col:
     with open_tab:
         with st.container(height=640, border=False):
             st.markdown("#### Ranked by urgency")
-            for urgency_level in ("high", "medium", "low"):
-                st.markdown(f"##### {urgency_labels[urgency_level]} ({len(grouped_open_tickets[urgency_level])})")
-                render_ticket_buttons(f"open_{urgency_level}", grouped_open_tickets[urgency_level])
+            render_ticket_buttons("open", active_open_tickets)
     with blocked_tab:
         with st.container(height=640, border=False):
             st.markdown("#### Blocked tickets")
-            for urgency_level in ("high", "medium", "low"):
-                st.markdown(f"##### {urgency_labels[urgency_level]} ({len(grouped_blocked_tickets[urgency_level])})")
-                render_ticket_buttons(f"blocked_{urgency_level}", grouped_blocked_tickets[urgency_level])
+            render_ticket_buttons("blocked", blocked_tickets)
     with archive_tab:
         with st.container(height=640, border=False):
             st.markdown("#### Archived tickets")
