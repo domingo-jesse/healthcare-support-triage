@@ -298,7 +298,7 @@ st.markdown(
             margin-bottom: 0.45rem;
         }
         .queue-item-row {
-            margin: 0.18rem 0;
+            margin: 0.05rem 0;
         }
         .queue-scroll-wrap {
             max-height: 72vh;
@@ -337,7 +337,7 @@ st.markdown(
         .queue-ticket-button div[data-testid="stButton"] > button {
             border-radius: 10px;
             border: 1px solid var(--border);
-            min-height: 50px;
+            min-height: 42px;
             padding: 0.4rem 0.55rem;
             text-align: left;
             font-size: 0.8rem;
@@ -355,11 +355,17 @@ st.markdown(
             background: rgba(59, 130, 246, 0.3);
             border-color: rgba(59, 130, 246, 0.33);
         }
-        .queue-archive-btn div[data-testid="stButton"] > button {
-            min-height: 50px;
+        .queue-move-select div[data-testid="stSelectbox"] {
+            margin-bottom: 0.2rem;
+        }
+        .queue-move-select div[data-testid="stSelectbox"] [data-baseweb="select"] > div {
+            min-height: 40px;
             border-radius: 10px;
-            padding: 0.2rem;
-            font-size: 0.95rem;
+            font-size: 0.8rem;
+            padding-right: 0.25rem;
+        }
+        .queue-ticket-button div[data-testid="stButton"] {
+            margin-bottom: 0.1rem;
         }
         .queue-ticket-button div[data-testid="stButton"] > button:hover {
             filter: brightness(0.98);
@@ -788,26 +794,71 @@ with left_col:
     grouped_open_tickets = group_by_urgency(active_open_tickets)
     grouped_blocked_tickets = group_by_urgency(blocked_tickets)
 
-    def archive_ticket(ticket: dict) -> None:
+    def move_ticket_to_queue(ticket: dict, target_queue: str) -> None:
         ticket_id = ticket.get("saved_id")
-        ticket["status"] = "completed"
+        if not ticket_id:
+            return
+
+        open_match = next((t for t in st.session_state.open_tickets if t.get("saved_id") == ticket_id), None)
+        closed_match = next((t for t in st.session_state.closed_tickets if t.get("saved_id") == ticket_id), None)
+        deleted_match = next((t for t in st.session_state.deleted_tickets if t.get("saved_id") == ticket_id), None)
+        active_ticket = open_match or closed_match or deleted_match or ticket
+
         st.session_state.open_tickets = [t for t in st.session_state.open_tickets if t.get("saved_id") != ticket_id]
+        st.session_state.closed_tickets = [t for t in st.session_state.closed_tickets if t.get("saved_id") != ticket_id]
         st.session_state.deleted_tickets = [t for t in st.session_state.deleted_tickets if t.get("saved_id") != ticket_id]
-        if not any(t.get("saved_id") == ticket_id for t in st.session_state.closed_tickets):
-            st.session_state.closed_tickets.append(ticket)
+
+        if target_queue == "open":
+            active_ticket["status"] = "in_progress"
+            st.session_state.open_tickets.append(active_ticket)
+        elif target_queue == "blocked":
+            active_ticket["status"] = "blocked"
+            st.session_state.open_tickets.append(active_ticket)
+        elif target_queue == "archived":
+            active_ticket["status"] = "completed"
+            st.session_state.closed_tickets.append(active_ticket)
+        elif target_queue == "deleted":
+            active_ticket["status"] = "deleted"
+            st.session_state.deleted_tickets.append(active_ticket)
+
         persist_ticket_state()
 
-    def render_ticket_buttons(section_key: str, tickets: list[dict], enable_archive: bool = True) -> None:
+    def ticket_queue_label(ticket: dict, section_key: str) -> str:
+        if section_key.startswith("open_"):
+            return "Open Queue"
+        if section_key.startswith("blocked_"):
+            return "Blocked Queue"
+        if section_key == "archive":
+            return "Archived Queue"
+        if section_key.startswith("deleted"):
+            return "Deleted / Spam"
+        status = normalize_status(ticket.get("status"))
+        if status in {"new", "in_progress"}:
+            return "Open Queue"
+        if status == "blocked":
+            return "Blocked Queue"
+        if status == "completed":
+            return "Archived Queue"
+        return "Deleted / Spam"
+
+    def render_ticket_buttons(section_key: str, tickets: list[dict]) -> None:
         if not tickets:
             st.caption("No tickets in this section.")
             return
+        queue_targets = {
+            "Open Queue": "open",
+            "Blocked Queue": "blocked",
+            "Archived Queue": "archived",
+            "Deleted / Spam": "deleted",
+        }
+        queue_labels = list(queue_targets.keys())
         for idx, ticket in enumerate(tickets):
             ticket_id = ticket.get("saved_id", "")
             widget_suffix = f"{ticket_id or 'noid'}_{idx}"
             title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
             urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
             queue_title = f"{urgency_icons[urgency]} {title}"
-            row_col, archive_col = st.columns([8.8, 1.2], gap="small")
+            row_col, archive_col = st.columns([7.9, 2.1], gap="small")
             with row_col:
                 st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
                 if st.button(
@@ -820,14 +871,17 @@ with left_col:
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
             with archive_col:
-                st.markdown('<div class="queue-item-row queue-archive-btn">', unsafe_allow_html=True)
-                if enable_archive and st.button(
-                    "🗑️",
-                    key=f"archive_{section_key}_{widget_suffix}",
-                    use_container_width=True,
-                    help="Archive this ticket",
-                ):
-                    archive_ticket(ticket)
+                st.markdown('<div class="queue-item-row queue-move-select">', unsafe_allow_html=True)
+                current_label = ticket_queue_label(ticket, section_key)
+                selected_label = st.selectbox(
+                    "Move ticket",
+                    options=queue_labels,
+                    index=queue_labels.index(current_label),
+                    key=f"move_{section_key}_{widget_suffix}",
+                    label_visibility="collapsed",
+                )
+                if selected_label != current_label:
+                    move_ticket_to_queue(ticket, queue_targets[selected_label])
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -849,41 +903,11 @@ with left_col:
     with archive_tab:
         with st.container(height=640, border=False):
             st.markdown("#### Archived tickets")
-            render_ticket_buttons("archive", closed_tickets, enable_archive=False)
+            render_ticket_buttons("archive", closed_tickets)
     with deleted_tab:
         with st.container(height=640, border=False):
             st.markdown("#### Deleted and spam tickets")
-            if not deleted_tickets:
-                st.caption("No deleted/spam tickets.")
-            for idx, ticket in enumerate(deleted_tickets):
-                ticket_id = ticket.get("saved_id", "")
-                widget_suffix = f"{ticket_id or 'noid'}_{idx}"
-                title = (ticket.get("ticket") or {}).get("title", "Untitled ticket")
-                urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
-                queue_title = f"{urgency_icons[urgency]} {title}"
-                row_col, restore_col = st.columns([8.8, 1.2], gap="small")
-                with row_col:
-                    st.markdown(f'<div class="queue-item-row queue-ticket-button {urgency}">', unsafe_allow_html=True)
-                    if st.button(
-                        queue_title,
-                        key=f"queue_deleted_{widget_suffix}",
-                        use_container_width=True,
-                        help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-                    ):
-                        st.session_state.selected_ticket_id = ticket_id
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                with restore_col:
-                    st.markdown('<div class="queue-item-row queue-archive-btn">', unsafe_allow_html=True)
-                    if st.button(
-                        "📦",
-                        key=f"restore_deleted_{widget_suffix}",
-                        use_container_width=True,
-                        help="Archive this deleted/spam ticket",
-                    ):
-                        archive_ticket(ticket)
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
+            render_ticket_buttons("deleted", deleted_tickets)
 
 with middle_col:
     st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
