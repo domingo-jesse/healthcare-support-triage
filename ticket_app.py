@@ -90,10 +90,10 @@ st.markdown(
             font-size: 0.74rem;
             font-weight: 700;
         }
-        .badge-low { background: #dbeafe; color: #1d4ed8; }
-        .badge-medium { background: #fef3c7; color: #92400e; }
-        .badge-high { background: #fee2e2; color: #b91c1c; }
-        .badge-spam { background: #f3e8ff; color: #7e22ce; }
+        .badge-low, .badge-medium, .badge-high, .badge-spam {
+            background: #eef2f7;
+            color: #334155;
+        }
         .ticket-title {
             font-size: 1rem;
             font-weight: 600;
@@ -182,33 +182,6 @@ st.markdown(
             box-shadow: inset 0 0 0 1px var(--ticket-ring-soft, rgba(59, 130, 246, 0.25));
             background: var(--ticket-selected-bg, var(--ticket-bg, #ffffff)) !important;
             color: var(--ticket-selected-text, var(--ticket-text, var(--text-primary))) !important;
-        }
-        .queue-ticket-button.urgency-high {
-            --ticket-bg: #fee2e2;
-            --ticket-text: #7f1d1d;
-            --ticket-border: #fecaca;
-            --ticket-selected-bg: #fecaca;
-            --ticket-selected-text: #7f1d1d;
-            --ticket-ring: #dc2626;
-            --ticket-ring-soft: rgba(220, 38, 38, 0.28);
-        }
-        .queue-ticket-button.urgency-medium {
-            --ticket-bg: #fef3c7;
-            --ticket-text: #78350f;
-            --ticket-border: #fde68a;
-            --ticket-selected-bg: #fde68a;
-            --ticket-selected-text: #78350f;
-            --ticket-ring: #d97706;
-            --ticket-ring-soft: rgba(217, 119, 6, 0.28);
-        }
-        .queue-ticket-button.urgency-low {
-            --ticket-bg: #dbeafe;
-            --ticket-text: #1e3a8a;
-            --ticket-border: #bfdbfe;
-            --ticket-selected-bg: #bfdbfe;
-            --ticket-selected-text: #1e3a8a;
-            --ticket-ring: #2563eb;
-            --ticket-ring-soft: rgba(37, 99, 235, 0.28);
         }
         .queue-move-control {
             margin-top: 0.5rem;
@@ -601,47 +574,19 @@ with left_col:
         if not tickets:
             st.caption("No tickets in this section.")
             return
-        urgency_theme = {
-            "high": {
-                "bg": "#fee2e2",
-                "text": "#7f1d1d",
-                "border": "#fecaca",
-                "selected_bg": "#fecaca",
-                "ring": "#dc2626",
-                "ring_soft": "rgba(220, 38, 38, 0.28)",
-            },
-            "medium": {
-                "bg": "#fef3c7",
-                "text": "#78350f",
-                "border": "#fde68a",
-                "selected_bg": "#fde68a",
-                "ring": "#d97706",
-                "ring_soft": "rgba(217, 119, 6, 0.28)",
-            },
-            "low": {
-                "bg": "#dbeafe",
-                "text": "#1e3a8a",
-                "border": "#bfdbfe",
-                "selected_bg": "#bfdbfe",
-                "ring": "#2563eb",
-                "ring_soft": "rgba(37, 99, 235, 0.28)",
-            },
-        }
         for idx, ticket in enumerate(tickets):
             ticket_id = ticket.get("saved_id", "")
             widget_suffix = f"{ticket_id or 'noid'}_{idx}"
             title = clean_ticket_title((ticket.get("ticket") or {}).get("title"))
-            urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
             is_selected = st.session_state.selected_ticket_id == ticket_id
             widget_key = f"queue_{section_key}_{widget_suffix}"
-            theme = urgency_theme.get(urgency, urgency_theme["low"])
             selection_css = ""
             if is_selected:
                 selection_css = f"""
                 .st-key-{widget_key} button {{
-                    border-color: {theme['ring']} !important;
-                    box-shadow: inset 0 0 0 1px {theme['ring_soft']} !important;
-                    background: {theme['selected_bg']} !important;
+                    border-color: var(--accent) !important;
+                    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.25) !important;
+                    background: var(--accent-soft) !important;
                 }}
                 """
             st.markdown(
@@ -649,7 +594,7 @@ with left_col:
                 <style>
                 .st-key-{widget_key} button {{
                     border-radius: 10px;
-                    border: 1px solid {theme['border']} !important;
+                    border: 1px solid var(--border) !important;
                     min-height: 50px;
                     padding: 0.55rem 0.65rem;
                     text-align: left;
@@ -657,8 +602,8 @@ with left_col:
                     font-weight: 600;
                     box-shadow: none;
                     transition: all 120ms ease-in-out;
-                    background: {theme['bg']} !important;
-                    color: {theme['text']} !important;
+                    background: #ffffff !important;
+                    color: var(--text-primary) !important;
                     white-space: normal;
                 }}
                 .st-key-{widget_key} button:hover {{
