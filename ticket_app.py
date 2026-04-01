@@ -656,7 +656,6 @@ def render_result(
 ) -> tuple[str, str, str, str]:
     ticket = result.get("ticket") or {}
     with st.container():
-        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Ticket Info</div>', unsafe_allow_html=True)
         edited_title = st.text_input(
             "Title",
@@ -690,26 +689,18 @@ def render_result(
                 key=f"{key_prefix}_status_{ticket.get('ticketId', 'unknown')}",
             )
         st.caption(f"Ticket ID: {ticket.get('ticketId', 'N/A')}")
-        st.markdown("</div>", unsafe_allow_html=True)
 
     root_cause, next_steps, suggested_response = parse_resolution_text(result["resolution"])
 
     with st.container():
-        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Resolution</div>', unsafe_allow_html=True)
-        st.markdown('<div class="resolution-scroll">', unsafe_allow_html=True)
         st.write(result["resolution"])
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
     with st.container():
-        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Likely Root Cause</div>', unsafe_allow_html=True)
         st.write(root_cause if root_cause else "No root cause was extracted.")
-        st.markdown("</div>", unsafe_allow_html=True)
 
     with st.container():
-        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Recommended Next Steps</div>', unsafe_allow_html=True)
         st.write(next_steps if next_steps else "No additional next steps were provided.")
         if suggested_response:
@@ -718,15 +709,11 @@ def render_result(
                 f'<div class="response-box">{html.escape(suggested_response)}</div>',
                 unsafe_allow_html=True,
             )
-        st.markdown("</div>", unsafe_allow_html=True)
 
     if submitted_request:
+        st.markdown('<div class="section-title">Submitted Request</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="panel-card"><div class="section-title">Submitted Request</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f'<div class="response-box">{html.escape(submitted_request)}</div></div>',
+            f'<div class="response-box">{html.escape(submitted_request)}</div>',
             unsafe_allow_html=True,
         )
 
@@ -734,13 +721,12 @@ def render_result(
 
 
 def render_empty_result_placeholder() -> None:
-    st.markdown('<div class="panel-card"><div class="section-title">Ticket details</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Ticket details</div>', unsafe_allow_html=True)
     st.caption("Resolution output will appear here.")
     st.markdown(
         '<div class="mini-note">Choose a ticket from the queue or run a new triage search to populate this panel.</div>',
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_activity_log(ticket_entry: dict, show_title: bool = True) -> None:
@@ -750,7 +736,6 @@ def render_activity_log(ticket_entry: dict, show_title: bool = True) -> None:
         key=lambda entry: entry.get("timestamp", ""),
         reverse=True,
     )
-    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     if show_title:
         st.markdown('<div class="section-title">Activity Log</div>', unsafe_allow_html=True)
     if not sorted_entries:
@@ -778,7 +763,6 @@ def render_activity_log(ticket_entry: dict, show_title: bool = True) -> None:
                 unsafe_allow_html=True,
             )
         st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_selected_ticket_details(
@@ -942,7 +926,6 @@ def track_recent_ticket_view(ticket_id: str | None) -> None:
 
 def render_new_ticket_search_panel(form_key: str) -> tuple[bool, str]:
     st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
-    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     with st.form(form_key, clear_on_submit=True):
         message = st.text_area(
             "Incoming support message",
@@ -951,7 +934,6 @@ def render_new_ticket_search_panel(form_key: str) -> tuple[bool, str]:
             placeholder="Paste a support ticket here...",
         )
         submitted = st.form_submit_button("Run triage", type="secondary", use_container_width=False)
-    st.markdown("</div>", unsafe_allow_html=True)
     triage_feedback = st.session_state.triage_feedback
     if triage_feedback:
         feedback_type = triage_feedback.get("type", "info")
@@ -1351,12 +1333,8 @@ if st.session_state.active_view == "Ticket Desk":
             if selected_ticket:
                 render_activity_log(selected_ticket, show_title=False)
             else:
-                st.markdown(
-                    '<div class="panel-card"><div class="section-title">Activity Log</div>',
-                    unsafe_allow_html=True,
-                )
+                st.markdown('<div class="section-title">Activity Log</div>', unsafe_allow_html=True)
                 st.caption("Select a ticket from Ticket Desk to view activity.")
-                st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
 
