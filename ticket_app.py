@@ -399,17 +399,17 @@ st.markdown(
             }
         }
         .queue-item-row {
-            margin: 0.15rem 0;
-            border-radius: 10px;
+            margin: 0.1rem 0;
+            border-radius: 9px;
         }
         .queue-ticket-button div[data-testid="stButton"] > button {
-            border-radius: 10px;
+            border-radius: 9px;
             border: 1px solid var(--ticket-border, transparent);
-            min-height: 50px;
-            padding: 0.55rem 0.65rem;
+            min-height: 38px;
+            padding: 0.38rem 0.5rem;
             text-align: left;
-            font-size: 0.86rem;
-            font-weight: 600;
+            font-size: 0.81rem;
+            font-weight: 500;
             box-shadow: none;
             transition: all 120ms ease-in-out;
             background: var(--ticket-bg, #ffffff) !important;
@@ -470,6 +470,87 @@ st.markdown(
             font-weight: 700;
             margin: 0.25rem 0 0.2rem;
             color: #334155;
+        }
+        .queue-shell {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 5px 16px rgba(15, 23, 42, 0.05);
+            padding: 0.5rem 0.55rem;
+            margin-bottom: 0.8rem;
+        }
+        .queue-head-row {
+            display: grid;
+            grid-template-columns: 0.8fr 4fr 1.4fr 1.1fr;
+            gap: 0.55rem;
+            padding: 0.22rem 0.4rem 0.35rem;
+            border-bottom: 1px solid #eef2f7;
+            color: #64748b;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 0.22rem;
+        }
+        .priority-dot {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 0.1rem 0.42rem;
+            font-size: 0.66rem;
+            font-weight: 700;
+            line-height: 1.35;
+            border: 1px solid transparent;
+        }
+        .priority-high {
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: #fecaca;
+        }
+        .priority-medium {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #fde68a;
+        }
+        .priority-low {
+            background: #e0f2fe;
+            color: #075985;
+            border-color: #bae6fd;
+        }
+        .queue-title {
+            font-size: 0.79rem;
+            font-weight: 650;
+            color: #0f172a;
+            line-height: 1.2;
+            margin-top: 0.08rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .queue-meta {
+            font-size: 0.68rem;
+            color: #94a3b8;
+            margin-top: 0.06rem;
+        }
+        .queue-status {
+            font-size: 0.69rem;
+            font-weight: 600;
+            color: #475569;
+            margin-top: 0.12rem;
+        }
+        .queue-updated {
+            font-size: 0.68rem;
+            color: #94a3b8;
+            margin-top: 0.14rem;
+        }
+        section[data-testid="stSidebar"] div[data-baseweb="radio"] label {
+            padding: 0.32rem 0.42rem;
+            border-radius: 8px;
+            margin-bottom: 0.16rem;
+            border: 1px solid transparent;
+        }
+        section[data-testid="stSidebar"] div[data-baseweb="radio"] label:has(input:checked) {
+            background: #eef4ff;
+            border-color: #dbeafe;
         }
         .scroll-panel {
             padding-right: 0.2rem;
@@ -1391,6 +1472,66 @@ def track_recent_ticket_view(ticket_id: str | None) -> None:
     st.session_state.recent_viewed_ticket_ids = recent_views[:5]
 
 
+def format_relative_time(iso_timestamp: str | None) -> str:
+    if not iso_timestamp:
+        return "—"
+    try:
+        created_dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return "—"
+    delta = datetime.now(timezone.utc) - created_dt
+    total_minutes = max(1, int(delta.total_seconds() // 60))
+    if total_minutes < 60:
+        return f"{total_minutes}m ago"
+    total_hours = total_minutes // 60
+    if total_hours < 24:
+        return f"{total_hours}h ago"
+    return f"{total_hours // 24}d ago"
+
+
+def render_compact_queue_rows(queue_key: str, tickets: list[dict], scope: str) -> None:
+    st.markdown(
+        '<div class="queue-head-row"><div>Priority</div><div>Ticket</div><div>Status</div><div>Updated</div></div>',
+        unsafe_allow_html=True,
+    )
+    for idx, ticket in enumerate(tickets):
+        ticket_id = ticket.get("saved_id", "")
+        ticket_data = ticket.get("ticket") or {}
+        urgency = normalize_urgency(ticket_data.get("urgency"))
+        urgency_label = urgency.title()
+        priority_class = {
+            "high": "priority-dot priority-high",
+            "medium": "priority-dot priority-medium",
+            "low": "priority-dot priority-low",
+        }.get(urgency, "priority-dot")
+        title = clean_ticket_title(ticket_data.get("title"))
+        status_label = STATUS_LABELS.get(normalize_status(ticket.get("status")), "Open")
+        updated_label = format_relative_time(ticket.get("created_at"))
+
+        with st.container():
+            c1, c2, c3, c4 = st.columns([0.85, 4.2, 1.5, 1.15], gap="small")
+            with c1:
+                st.markdown(
+                    f'<span class="{priority_class}">{html.escape(urgency_label)}</span>',
+                    unsafe_allow_html=True,
+                )
+            with c2:
+                st.markdown(f'<div class="queue-title">{html.escape(title)}</div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="queue-meta">#{html.escape(str(ticket_id or "N/A"))}</div>',
+                    unsafe_allow_html=True,
+                )
+            with c3:
+                st.markdown(f'<div class="queue-status">{html.escape(status_label)}</div>', unsafe_allow_html=True)
+            with c4:
+                button_key = f"open_{scope}_{queue_key}_{ticket_id or idx}"
+                if st.button(updated_label, key=button_key, use_container_width=True):
+                    st.session_state.selected_ticket_id = ticket_id
+                    track_recent_ticket_view(ticket_id)
+                    st.session_state.pending_view = "Ticket Desk"
+                    st.rerun()
+
+
 def render_new_ticket_search_panel(form_key: str) -> tuple[bool, str]:
     st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
     with st.form(form_key, clear_on_submit=True):
@@ -1887,7 +2028,7 @@ def render_queue_sidebar() -> None:
         "deleted": f"Deleted ({len(deleted_tickets)})",
     }
     with st.sidebar:
-        st.markdown("### 🎫 Ticket queues")
+        st.markdown("### Ticket queues")
         selected_queue = st.radio(
             "Queue focus",
             options=queue_options,
@@ -1926,22 +2067,29 @@ def render_queue_sidebar() -> None:
             st.caption("No tickets in this queue.")
             return
 
-        for idx, ticket in enumerate(queue_tickets):
-            ticket_id = ticket.get("saved_id", "")
-            ticket_data = ticket.get("ticket") or {}
-            title = clean_ticket_title(ticket_data.get("title"))
-            urgency = normalize_urgency(ticket_data.get("urgency")).title()
-            button_key = f"sidebar_queue_{selected_queue}_{ticket_id or idx}"
-            if st.button(
-                f"● {title} [{urgency}]",
-                key=button_key,
-                use_container_width=True,
-                help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-            ):
-                st.session_state.selected_ticket_id = ticket_id
-                track_recent_ticket_view(ticket_id)
-                st.session_state.pending_view = "Ticket Desk"
-                st.rerun()
+        st.markdown('<div class="queue-shell">', unsafe_allow_html=True)
+        render_compact_queue_rows(selected_queue, queue_tickets[:9], "sidebar")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_main_queue_panel() -> None:
+    blocked_tickets = [t for t in open_tickets if normalize_status(t.get("status")) == "blocked"]
+    active_open_tickets = [t for t in open_tickets if normalize_status(t.get("status")) in {"new", "in_progress"}]
+    queue_map = {
+        "open": ("Open queue", active_open_tickets),
+        "blocked": ("Blocked queue", blocked_tickets),
+        "archive": ("Archived queue", closed_tickets),
+        "deleted": ("Deleted / spam", deleted_tickets),
+    }
+    queue_title, queue_tickets = queue_map.get(st.session_state.active_queue, ("Open queue", active_open_tickets))
+    st.markdown(f'<div class="queue-section-title-sm">{queue_title}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="mini-note">Compact operational view for fast scanning and ticket selection.</div>', unsafe_allow_html=True)
+    if not queue_tickets:
+        st.caption("No tickets available in this queue.")
+        return
+    st.markdown('<div class="queue-shell">', unsafe_allow_html=True)
+    render_compact_queue_rows(st.session_state.active_queue, queue_tickets[:10], "main_panel")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 render_queue_sidebar()
@@ -1969,6 +2117,7 @@ if st.session_state.active_view == "Ticket Desk":
     ticket_left, ticket_right = st.columns([1.75, 1.25], gap="large")
     with ticket_left:
         st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
+        render_main_queue_panel()
         with st.container():
             st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
             render_selected_ticket_details(
