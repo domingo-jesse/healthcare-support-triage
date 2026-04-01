@@ -916,6 +916,8 @@ if "active_queue" not in st.session_state:
     st.session_state.active_queue = "open"
 if "triage_feedback" not in st.session_state:
     st.session_state.triage_feedback = None
+if "active_view" not in st.session_state:
+    st.session_state.active_view = "Triage Workspace"
 
 # Migration support: move completed tickets from open storage into archive storage.
 migrated_open_tickets = []
@@ -961,14 +963,27 @@ closed_tickets = rank_tickets(list(st.session_state.closed_tickets))
 deleted_tickets = rank_tickets(list(st.session_state.deleted_tickets))
 all_tickets = open_tickets + closed_tickets + deleted_tickets
 
-workspace_tab, ticket_tab, analytics_tab = st.tabs(
-    ["Triage Workspace", "Ticket Desk", "Analytics Center"]
+view_options = ["Triage Workspace", "Ticket Desk", "Analytics Center"]
+active_view = (
+    st.session_state.active_view
+    if st.session_state.active_view in view_options
+    else "Triage Workspace"
 )
+selected_view = st.radio(
+    "Workspace view",
+    options=view_options,
+    horizontal=True,
+    index=view_options.index(active_view),
+    label_visibility="collapsed",
+)
+if selected_view != st.session_state.active_view:
+    st.session_state.active_view = selected_view
+
 submitted = False
 message = ""
 
-with workspace_tab:
-    left_col, middle_col, right_col = st.columns([1.15, 1.45, 1.4], gap="large")
+if st.session_state.active_view == "Triage Workspace":
+    left_col, right_col = st.columns([1.35, 1.1], gap="large")
 
     with left_col:
         st.markdown('<div class="three-col-header">🎫 Ticket queues</div>', unsafe_allow_html=True)
@@ -1113,6 +1128,7 @@ with workspace_tab:
                 ):
                     st.session_state.selected_ticket_id = ticket_id
                     st.session_state.active_queue = section_key
+                    st.session_state.active_view = "Ticket Desk"
                     st.rerun()
 
         queue_sections = [
@@ -1153,25 +1169,13 @@ with workspace_tab:
             render_ticket_buttons(queue_key, queue_tickets)
             st.markdown("</div>", unsafe_allow_html=True)
 
-    with middle_col:
-        st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
-        with st.container():
-            st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
-            render_selected_ticket_details(
-                all_tickets,
-                show_queue_move=True,
-                ticket_queue_label_fn=ticket_queue_label,
-                move_ticket_fn=move_ticket_to_queue,
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-
     with right_col:
         workspace_submitted, workspace_message = render_new_ticket_search_panel("triage_form_workspace")
         if workspace_submitted:
             submitted = True
             message = workspace_message
 
-with ticket_tab:
+if st.session_state.active_view == "Ticket Desk":
     ticket_left, ticket_right = st.columns([1.75, 1.25], gap="large")
     with ticket_left:
         st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
@@ -1246,6 +1250,7 @@ with ticket_tab:
                     st.session_state.active_queue = "open"
                 persist_ticket_state()
                 st.session_state.selected_ticket_id = saved_entry["saved_id"]
+                st.session_state.active_view = "Ticket Desk"
                 st.session_state.triage_feedback = {
                     "type": "success",
                     "message": "Analysis complete. Ticket added to the queue.",
@@ -1256,5 +1261,5 @@ with ticket_tab:
                 st.rerun()
 
 
-with analytics_tab:
+if st.session_state.active_view == "Analytics Center":
     render_analytics_center(open_tickets, closed_tickets, deleted_tickets)
