@@ -258,6 +258,85 @@ st.markdown(
             gap: 0.45rem;
             margin-top: 0.55rem;
         }
+        .analytics-chart-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+        }
+        .analytics-chart-card {
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 12px;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.75);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+        }
+        .analytics-chart-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 0.25rem;
+        }
+        .analytics-chart-note {
+            font-size: 0.72rem;
+            color: #64748b;
+            margin-bottom: 0.55rem;
+        }
+        .analytics-bar-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+        .analytics-bar-row {
+            display: grid;
+            grid-template-columns: 72px 1fr auto;
+            gap: 0.4rem;
+            align-items: center;
+            font-size: 0.72rem;
+            color: #475569;
+        }
+        .analytics-bar-track {
+            height: 9px;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.2);
+            overflow: hidden;
+        }
+        .analytics-bar-fill {
+            height: 100%;
+            width: 0;
+            border-radius: 999px;
+            animation: smoothGrow 850ms cubic-bezier(.2,.8,.2,1) forwards;
+        }
+        .analytics-line-svg {
+            width: 100%;
+            height: 140px;
+            overflow: visible;
+        }
+        .analytics-line-path {
+            fill: none;
+            stroke: #3b82f6;
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: drawLine 1200ms ease forwards;
+        }
+        .analytics-line-point {
+            fill: #2563eb;
+            opacity: 0;
+            animation: fadePoint 380ms ease forwards;
+        }
+        @keyframes smoothGrow {
+            from { width: 0; }
+            to { width: var(--target-width, 0%); }
+        }
+        @keyframes drawLine {
+            to { stroke-dashoffset: 0; }
+        }
+        @keyframes fadePoint {
+            to { opacity: 1; }
+        }
         .analytics-recent-list div[data-testid="stButton"] > button {
             background: rgba(248,250,252,0.4);
             border: 1px solid rgba(148, 163, 184, 0.34);
@@ -314,7 +393,8 @@ st.markdown(
         }
         @media (max-width: 760px) {
             .analytics-grid,
-            .analytics-subgrid {
+            .analytics-subgrid,
+            .analytics-chart-grid {
                 grid-template-columns: repeat(1, minmax(0, 1fr));
             }
         }
@@ -1046,6 +1126,113 @@ def persist_ticket_state() -> None:
     save_deleted_tickets(st.session_state.deleted_tickets)
 
 
+def _build_daily_volume_chart_html(filtered_tickets: list[dict], start_date, end_date) -> str:
+    day_span = max(1, (end_date - start_date).days + 1)
+    day_counts = [0] * day_span
+
+    for ticket in filtered_tickets:
+        created_at = ticket.get("created_at")
+        if not created_at:
+            continue
+        try:
+            created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        day_index = (created_dt.date() - start_date).days
+        if 0 <= day_index < day_span:
+            day_counts[day_index] += 1
+
+    max_count = max(day_counts) if day_counts else 1
+    width, height = 560, 128
+    left_pad, right_pad, top_pad, bottom_pad = 12, 12, 10, 22
+    plot_width = max(1, width - left_pad - right_pad)
+    plot_height = max(1, height - top_pad - bottom_pad)
+
+    if day_span == 1:
+        x_step = 0
+    else:
+        x_step = plot_width / (day_span - 1)
+
+    points: list[tuple[float, float, int]] = []
+    for idx, count in enumerate(day_counts):
+        x = left_pad + (x_step * idx)
+        y = top_pad + (plot_height * (1 - (count / max_count if max_count else 0)))
+        points.append((x, y, count))
+
+    polyline_points = " ".join(f"{x:.2f},{y:.2f}" for x, y, _ in points)
+    circles = []
+    for idx, (x, y, count) in enumerate(points):
+        circles.append(
+            f'<circle class="analytics-line-point" cx="{x:.2f}" cy="{y:.2f}" r="3" '
+            f'style="animation-delay:{180 + (idx * 60)}ms;">'
+            f'<title>{count} ticket{"s" if count != 1 else ""}</title>'
+            f"</circle>"
+        )
+
+    line_labels = (
+        f'<text x="{left_pad}" y="{height - 4}" font-size="10" fill="#64748b">{start_date.isoformat()}</text>'
+        f'<text x="{width - right_pad}" y="{height - 4}" text-anchor="end" font-size="10" fill="#64748b">{end_date.isoformat()}</text>'
+    )
+
+    return (
+        f'<svg class="analytics-line-svg" viewBox="0 0 {width} {height}" role="img" '
+        f'aria-label="Daily ticket volume from {start_date.isoformat()} to {end_date.isoformat()}">'
+        f'<line x1="{left_pad}" y1="{height - bottom_pad}" x2="{width - right_pad}" y2="{height - bottom_pad}" '
+        f'stroke="rgba(148,163,184,0.45)" stroke-width="1"/>'
+        f'<polyline class="analytics-line-path" points="{polyline_points}"></polyline>'
+        f'{"".join(circles)}'
+        f"{line_labels}"
+        f"</svg>"
+    )
+
+
+def _build_status_distribution_html(filtered_tickets: list[dict]) -> str:
+    status_counts = {
+        "New": 0,
+        "In progress": 0,
+        "Blocked": 0,
+        "Completed": 0,
+        "Deleted": 0,
+    }
+    status_color = {
+        "New": "#3b82f6",
+        "In progress": "#6366f1",
+        "Blocked": "#f59e0b",
+        "Completed": "#10b981",
+        "Deleted": "#94a3b8",
+    }
+
+    for ticket in filtered_tickets:
+        status = normalize_status(ticket.get("status"))
+        if status == "new":
+            status_counts["New"] += 1
+        elif status == "in_progress":
+            status_counts["In progress"] += 1
+        elif status == "blocked":
+            status_counts["Blocked"] += 1
+        elif status == "completed":
+            status_counts["Completed"] += 1
+        else:
+            status_counts["Deleted"] += 1
+
+    total = max(1, sum(status_counts.values()))
+    rows = []
+    for label, count in status_counts.items():
+        percentage = (count / total) * 100
+        rows.append(
+            f"""
+            <div class="analytics-bar-row">
+                <span>{label}</span>
+                <div class="analytics-bar-track">
+                    <div class="analytics-bar-fill" style="--target-width:{percentage:.1f}%; background:{status_color[label]};"></div>
+                </div>
+                <span>{count}</span>
+            </div>
+            """
+        )
+    return f'<div class="analytics-bar-stack">{"".join(rows)}</div>'
+
+
 def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict], deleted_tickets: list[dict]) -> None:
     st.markdown('<div class="three-col-header">📊 Analytics center</div>', unsafe_allow_html=True)
 
@@ -1160,6 +1347,18 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
             <div class="analytics-chip"><div class="analytics-chip-label">Avg first triage time</div><div class="analytics-chip-value">{avg_first_triage_minutes:.0f}m</div></div>
             <div class="analytics-chip"><div class="analytics-chip-label">Open > 24h</div><div class="analytics-chip-value">{stale_ticket_count}</div></div>
             <div class="analytics-chip"><div class="analytics-chip-label">Avg ticket age</div><div class="analytics-chip-value">{avg_ticket_age_hours:.1f}h</div></div>
+        </div>
+        <div class="analytics-chart-grid">
+            <div class="analytics-chart-card">
+                <div class="analytics-chart-title">Daily ticket volume trend</div>
+                <div class="analytics-chart-note">Tickets created per day within selected range.</div>
+                {_build_daily_volume_chart_html(filtered_tickets, start_date, end_date)}
+            </div>
+            <div class="analytics-chart-card">
+                <div class="analytics-chart-title">Status distribution</div>
+                <div class="analytics-chart-note">Smooth-loading bars for active queue flow.</div>
+                {_build_status_distribution_html(filtered_tickets)}
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
