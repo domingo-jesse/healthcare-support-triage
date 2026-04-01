@@ -534,58 +534,354 @@ PROGRESS_OPTIONS = ("in_progress", "blocked", "completed")
 OPEN_STATUSES = ("new", "in_progress", "blocked")
 DEFAULT_PRELOADED_TICKETS = [
     {
-        "title": "Missing Provider Fax Number",
-        "description": (
-            "User is submitting a prior auth but the provider fax number is not populating "
-            "automatically. Requesting help to locate or enter correct fax number."
-        ),
-        "impact": "Minor delay in submission",
-        "urgency": "low",
-    },
-    {
-        "title": "Duplicate Prior Auth Entry",
-        "description": (
-            "User accidentally created two prior auth requests for the same patient and "
-            "procedure. Needs guidance on which one to cancel."
-        ),
-        "impact": "No immediate patient impact",
-        "urgency": "low",
-    },
-    {
-        "title": "Unable to Attach Clinical Documents",
-        "description": (
-            "User cannot upload required clinical notes when submitting prior auth. "
-            "Upload button is not responding."
-        ),
-        "impact": "Delays authorization review",
-        "urgency": "medium",
-    },
-    {
-        "title": "Incorrect CPT Code Suggestion",
-        "description": (
-            "System is suggesting the wrong CPT code for a procedure. User wants to "
-            "confirm correct coding before submission."
-        ),
-        "impact": "Risk of denial if submitted incorrectly",
-        "urgency": "medium",
-    },
-    {
-        "title": "Prior Auth Submission Failing",
-        "description": (
-            'User receives error when trying to submit prior auth. Error message says '
-            '"submission failed – retry later." Issue persists after multiple attempts.'
-        ),
-        "impact": "Patient care delayed",
+        "title": "System Down – Unable to Submit Prior Auth",
+        "description": "User cannot access the portal and receives a 500 error during submission.",
+        "impact": "Authorizations blocked across providers",
         "urgency": "high",
+        "status": "blocked",
+    },
+    {
+        "title": "Urgent Surgery Auth Missing",
+        "description": "Scheduled procedure is today and no authorization can be found in the case.",
+        "impact": "Same-day surgery at risk",
+        "urgency": "high",
+        "status": "in_progress",
+    },
+    {
+        "title": "Incorrect Denial – Patient Critical",
+        "description": "System auto-denied request that appears to meet approval criteria.",
+        "impact": "Potential delay in critical care",
+        "urgency": "high",
+        "status": "new",
+    },
+    {
+        "title": "Portal Timeout During Submission",
+        "description": "Prior auth request times out during submit and does not complete.",
+        "impact": "Repeated submission attempts failing",
+        "urgency": "high",
+        "status": "in_progress",
+    },
+    {
+        "title": "Duplicate Auth Created",
+        "description": "Two authorizations were created for the same request and patient.",
+        "impact": "Risk of payer confusion and rework",
+        "urgency": "high",
+        "status": "completed",
+    },
+    {
+        "title": "Eligibility Not Loading",
+        "description": "User cannot verify coverage because eligibility module does not load.",
+        "impact": "Unable to validate medical necessity workflow",
+        "urgency": "high",
+        "status": "blocked",
+    },
+    {
+        "title": "Provider Locked Out",
+        "description": "Provider account is denied after login attempts and cannot access queue.",
+        "impact": "Urgent access interruption",
+        "urgency": "high",
+        "status": "completed",
     },
     {
         "title": "Authorization Status Not Updating",
-        "description": (
-            "Prior auth was approved by payer, but system still shows pending status. "
-            "User needs update to proceed with treatment scheduling."
-        ),
-        "impact": "Blocking patient treatment",
+        "description": "Request still shows pending even after payer indicates approval.",
+        "impact": "Clinical scheduling stalled",
         "urgency": "high",
+        "status": "in_progress",
+    },
+    {
+        "title": "Clinical Docs Not Uploading",
+        "description": "Required attachments fail to upload during request submission.",
+        "impact": "Cannot finalize clinical packet",
+        "urgency": "high",
+        "status": "new",
+    },
+    {
+        "title": "Incorrect CPT Code Applied",
+        "description": "System mapped the procedure to the wrong CPT code automatically.",
+        "impact": "High denial risk on urgent case",
+        "urgency": "high",
+        "status": "blocked",
+    },
+    {
+        "title": "Payer API Failure",
+        "description": "Payer integration is returning no response for authorization checks.",
+        "impact": "External dependency outage",
+        "urgency": "high",
+        "status": "in_progress",
+    },
+    {
+        "title": "Urgent Appeal Submission Blocked",
+        "description": "Appeal action button is not working on high-priority denial.",
+        "impact": "Time-sensitive appeal delayed",
+        "urgency": "high",
+        "status": "new",
+    },
+    {
+        "title": "Patient Record Not Found",
+        "description": "Patient is present in EHR but missing in triage system search.",
+        "impact": "Urgent authorization cannot proceed",
+        "urgency": "high",
+        "status": "completed",
+    },
+    {
+        "title": "Auto-Approval Not Triggering",
+        "description": "Request meets configured rules but remains pending with no auto-approval.",
+        "impact": "Potentially avoidable treatment delays",
+        "urgency": "high",
+        "status": "in_progress",
+    },
+    {
+        "title": "Fax Integration Down",
+        "description": "Incoming faxes are not attaching to active authorization cases.",
+        "impact": "Clinical documents missing from review",
+        "urgency": "high",
+        "status": "deleted",
+    },
+    {
+        "title": "Slow Response Time",
+        "description": "Portal pages are taking more than 10 seconds to load.",
+        "impact": "Productivity degradation for intake staff",
+        "urgency": "medium",
+        "status": "in_progress",
+    },
+    {
+        "title": "Auth Status Delay",
+        "description": "Status updates lag behind payer responses for active requests.",
+        "impact": "Operational confusion and follow-up calls",
+        "urgency": "medium",
+        "status": "new",
+    },
+    {
+        "title": "Incorrect Provider Info",
+        "description": "Wrong NPI appears on authorization request summary.",
+        "impact": "May require correction before submission",
+        "urgency": "medium",
+        "status": "completed",
+    },
+    {
+        "title": "Missing Clinical Fields",
+        "description": "Required clinical input fields are not visible in the form.",
+        "impact": "Submissions paused pending form fix",
+        "urgency": "medium",
+        "status": "blocked",
+    },
+    {
+        "title": "Notification Not Sent",
+        "description": "Provider did not receive expected approval email notification.",
+        "impact": "Communication gap for care teams",
+        "urgency": "medium",
+        "status": "in_progress",
+    },
+    {
+        "title": "Appeal Status Confusing",
+        "description": "Displayed appeal status is unclear and causing repeated questions.",
+        "impact": "Support volume increase",
+        "urgency": "medium",
+        "status": "new",
+    },
+    {
+        "title": "Multiple Patient Matches",
+        "description": "Search returns duplicate patient candidates for one member.",
+        "impact": "Risk of selecting wrong chart",
+        "urgency": "medium",
+        "status": "completed",
+    },
+    {
+        "title": "Authorization Expiring Early",
+        "description": "Authorization end date appears earlier than payer-confirmed window.",
+        "impact": "Potential avoidable resubmissions",
+        "urgency": "medium",
+        "status": "blocked",
+    },
+    {
+        "title": "Dropdown Not Loading",
+        "description": "Payer dropdown list does not populate in intake workflow.",
+        "impact": "Users cannot complete required selection",
+        "urgency": "medium",
+        "status": "in_progress",
+    },
+    {
+        "title": "Search Function Slow",
+        "description": "Ticket and member search is taking too long to return results.",
+        "impact": "Queue throughput reduced",
+        "urgency": "medium",
+        "status": "new",
+    },
+    {
+        "title": "Partial Submission Saved",
+        "description": "System saved an incomplete request unexpectedly during entry.",
+        "impact": "Requires manual cleanup before routing",
+        "urgency": "medium",
+        "status": "completed",
+    },
+    {
+        "title": "Incorrect Diagnosis Code Mapping",
+        "description": "ICD-10 mapping appears mismatched to selected diagnosis.",
+        "impact": "Potential medical necessity mismatch",
+        "urgency": "medium",
+        "status": "in_progress",
+    },
+    {
+        "title": "UI Layout Issue",
+        "description": "Form fields overlap on screen making some entries hard to read.",
+        "impact": "Workflow usability degraded",
+        "urgency": "medium",
+        "status": "new",
+    },
+    {
+        "title": "Export Report Error",
+        "description": "CSV export fails from analytics report with an error message.",
+        "impact": "Reporting task blocked",
+        "urgency": "medium",
+        "status": "blocked",
+    },
+    {
+        "title": "Notes Not Saving",
+        "description": "User-entered notes disappear after navigating between screens.",
+        "impact": "Loss of triage context",
+        "urgency": "medium",
+        "status": "in_progress",
+    },
+    {
+        "title": "Authorization History Missing",
+        "description": "Previous workflow actions are not visible in history timeline.",
+        "impact": "Audit trail appears incomplete",
+        "urgency": "medium",
+        "status": "completed",
+    },
+    {
+        "title": "Filter Not Working",
+        "description": "Status filter does not update queue results when selected.",
+        "impact": "Users cannot isolate work efficiently",
+        "urgency": "medium",
+        "status": "new",
+    },
+    {
+        "title": "Session Timeout Too Short",
+        "description": "System signs users out after about five minutes of inactivity.",
+        "impact": "Frequent interruptions for staff",
+        "urgency": "medium",
+        "status": "blocked",
+    },
+    {
+        "title": "Duplicate Notifications",
+        "description": "Same alert is being sent multiple times for one status change.",
+        "impact": "Notification fatigue",
+        "urgency": "medium",
+        "status": "in_progress",
+    },
+    {
+        "title": "Task Queue Not Updating",
+        "description": "Completed items continue to display as active in queue.",
+        "impact": "Queue metrics skewed",
+        "urgency": "medium",
+        "status": "deleted",
+    },
+    {
+        "title": "Typo in UI Label",
+        "description": "Minor spelling error found in prior auth request label.",
+        "impact": "Cosmetic issue only",
+        "urgency": "low",
+        "status": "new",
+    },
+    {
+        "title": "Color Contrast Issue",
+        "description": "Some UI text has low contrast and is difficult to read.",
+        "impact": "Accessibility concern for users",
+        "urgency": "low",
+        "status": "in_progress",
+    },
+    {
+        "title": "Tooltip Missing",
+        "description": "Help tooltip is not appearing for a non-critical form field.",
+        "impact": "Minor usability friction",
+        "urgency": "low",
+        "status": "completed",
+    },
+    {
+        "title": "Request for Feature",
+        "description": "User requested bulk document upload capability.",
+        "impact": "Feature enhancement request",
+        "urgency": "low",
+        "status": "new",
+    },
+    {
+        "title": "Dashboard Layout Suggestion",
+        "description": "User suggested readability improvements for dashboard arrangement.",
+        "impact": "Product feedback for future iteration",
+        "urgency": "low",
+        "status": "completed",
+    },
+    {
+        "title": "Slow Report Generation",
+        "description": "Non-critical report generation is slower than expected.",
+        "impact": "Background reporting delay",
+        "urgency": "low",
+        "status": "in_progress",
+    },
+    {
+        "title": "Minor Alignment Issue",
+        "description": "One action button appears slightly misaligned in the form.",
+        "impact": "Small visual inconsistency",
+        "urgency": "low",
+        "status": "new",
+    },
+    {
+        "title": "Profile Update Delay",
+        "description": "Profile changes take extra time to appear after saving.",
+        "impact": "Low-severity sync delay",
+        "urgency": "low",
+        "status": "blocked",
+    },
+    {
+        "title": "Help Link Broken",
+        "description": "Help center link redirects to a non-working destination.",
+        "impact": "Self-service guidance unavailable",
+        "urgency": "low",
+        "status": "completed",
+    },
+    {
+        "title": "Email Formatting Issue",
+        "description": "Notification email layout appears misformatted in inbox.",
+        "impact": "Readability issue in communications",
+        "urgency": "low",
+        "status": "new",
+    },
+    {
+        "title": "Pagination Confusing",
+        "description": "Pagination behavior is unclear when navigating ticket lists.",
+        "impact": "Minor navigation friction",
+        "urgency": "low",
+        "status": "in_progress",
+    },
+    {
+        "title": "Auto-fill Not Working",
+        "description": "Known values are not auto-filling in optional fields.",
+        "impact": "Extra manual entry required",
+        "urgency": "low",
+        "status": "completed",
+    },
+    {
+        "title": "Saved Filters Reset",
+        "description": "User filter preferences are not retained between sessions.",
+        "impact": "Inconvenience for repeat users",
+        "urgency": "low",
+        "status": "new",
+    },
+    {
+        "title": "Mobile View Issue",
+        "description": "Layout breaks on phone-sized screens in non-critical views.",
+        "impact": "Mobile usability issue",
+        "urgency": "low",
+        "status": "blocked",
+    },
+    {
+        "title": "General Feedback",
+        "description": "User submitted general UI and workflow improvement feedback.",
+        "impact": "No immediate operational impact",
+        "urgency": "low",
+        "status": "deleted",
     },
 ]
 
@@ -606,7 +902,7 @@ def load_tickets() -> list[dict]:
             {
                 "saved_id": f"{index:03d}",
                 "created_at": created_at.isoformat(),
-                "status": "new",
+                "status": template.get("status", "new"),
                 "message": (
                     f"Title: {template['title']}\n"
                     f"Description: {template['description']}\n"
