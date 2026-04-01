@@ -1,7 +1,7 @@
 import asyncio
 import html
+import re
 from datetime import datetime, timezone
-from uuid import uuid4
 
 import streamlit as st
 
@@ -359,11 +359,110 @@ STATUS_LABELS = {
 }
 PROGRESS_OPTIONS = ("in_progress", "blocked", "completed")
 OPEN_STATUSES = ("new", "in_progress", "blocked")
+DEFAULT_PRELOADED_TICKETS = [
+    {
+        "title": "Missing Provider Fax Number",
+        "description": (
+            "User is submitting a prior auth but the provider fax number is not populating "
+            "automatically. Requesting help to locate or enter correct fax number."
+        ),
+        "impact": "Minor delay in submission",
+        "urgency": "low",
+    },
+    {
+        "title": "Duplicate Prior Auth Entry",
+        "description": (
+            "User accidentally created two prior auth requests for the same patient and "
+            "procedure. Needs guidance on which one to cancel."
+        ),
+        "impact": "No immediate patient impact",
+        "urgency": "low",
+    },
+    {
+        "title": "Unable to Attach Clinical Documents",
+        "description": (
+            "User cannot upload required clinical notes when submitting prior auth. "
+            "Upload button is not responding."
+        ),
+        "impact": "Delays authorization review",
+        "urgency": "medium",
+    },
+    {
+        "title": "Incorrect CPT Code Suggestion",
+        "description": (
+            "System is suggesting the wrong CPT code for a procedure. User wants to "
+            "confirm correct coding before submission."
+        ),
+        "impact": "Risk of denial if submitted incorrectly",
+        "urgency": "medium",
+    },
+    {
+        "title": "Prior Auth Submission Failing",
+        "description": (
+            'User receives error when trying to submit prior auth. Error message says '
+            '"submission failed – retry later." Issue persists after multiple attempts.'
+        ),
+        "impact": "Patient care delayed",
+        "urgency": "high",
+    },
+    {
+        "title": "Authorization Status Not Updating",
+        "description": (
+            "Prior auth was approved by payer, but system still shows pending status. "
+            "User needs update to proceed with treatment scheduling."
+        ),
+        "impact": "Blocking patient treatment",
+        "urgency": "high",
+    },
+]
 
 
 def load_tickets() -> list[dict]:
-    # Demo mode: do not persist tickets between sessions.
-    return []
+    # Demo mode: initialize each session with a curated default queue.
+    now = datetime.now(timezone.utc)
+    preloaded_tickets: list[dict] = []
+    for index, template in enumerate(DEFAULT_PRELOADED_TICKETS, start=1):
+        preloaded_tickets.append(
+            {
+                "saved_id": f"{index:03d}",
+                "created_at": (now.replace(microsecond=0)).isoformat(),
+                "status": "new",
+                "message": (
+                    f"Title: {template['title']}\n"
+                    f"Description: {template['description']}\n"
+                    f"Impact: {template['impact']}\n"
+                    f"Urgency: {template['urgency'].title()}"
+                ),
+                "classification": "ticket",
+                "ticket": {
+                    "ticketId": f"{index:03d}",
+                    "title": template["title"],
+                    "urgency": template["urgency"],
+                },
+                "resolution": (
+                    "Root Cause: Intake issue requires support review.\n"
+                    "Recommended Next Steps: Confirm payer and provider context, "
+                    "validate request details, then guide user through correction.\n"
+                    "Suggested Response to Customer: We have logged your request and "
+                    "are reviewing the details to help you complete prior auth submission."
+                ),
+                "activity_log": [
+                    make_log_entry(
+                        actor="system",
+                        action_type="Request created",
+                        details=f"Ticket {index:03d} was preloaded into triage.",
+                        timestamp=(now.replace(microsecond=0)).isoformat(),
+                    ),
+                    make_log_entry(
+                        actor="ai",
+                        action_type="AI triage completed",
+                        details="Preloaded ticket was analyzed and added to the default queue.",
+                        timestamp=(now.replace(microsecond=0)).isoformat(),
+                    ),
+                ],
+            }
+        )
+    return preloaded_tickets
 
 
 def save_tickets(tickets: list[dict]) -> None:
@@ -425,17 +524,24 @@ def normalize_status(status: str | None) -> str:
 
 
 def ensure_unique_ticket_id(ticket_id: str | None, existing_tickets: list[dict]) -> str:
-    # Preserve model-proposed IDs when possible; append suffix on collision.
-    candidate = (ticket_id or "").strip()
-    existing_ids = {entry.get("saved_id") for entry in existing_tickets}
+    # Use a simple 3-digit sequence (001, 002, ...) across the full session queue.
+    numeric_ids: set[int] = set()
+    existing_ids = {str(entry.get("saved_id", "")).strip() for entry in existing_tickets}
 
-    if not candidate:
-        candidate = f"TKT-{uuid4().hex[:8].upper()}"
+    for existing_id in existing_ids:
+        if re.fullmatch(r"\d{3,}", existing_id):
+            numeric_ids.add(int(existing_id))
 
-    if candidate in existing_ids:
-        candidate = f"{candidate}-{uuid4().hex[:4].upper()}"
+    requested_id = (ticket_id or "").strip()
+    if re.fullmatch(r"\d{3,}", requested_id):
+        requested_value = int(requested_id)
+        if requested_value not in numeric_ids:
+            return f"{requested_value:03d}"
 
-    return candidate
+    next_id = (max(numeric_ids) + 1) if numeric_ids else 1
+    while f"{next_id:03d}" in existing_ids:
+        next_id += 1
+    return f"{next_id:03d}"
 
 
 def clean_ticket_title(title: str | None) -> str:
