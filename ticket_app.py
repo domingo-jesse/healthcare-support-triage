@@ -1156,6 +1156,32 @@ def append_activity_log(ticket_entry: dict, actor: str, action_type: str, detail
     log.append(make_log_entry(actor=actor, action_type=action_type, details=details))
 
 
+def render_activity_comment_box(ticket_entry: dict) -> None:
+    with st.form(key=f"activity_comment_form_{ticket_entry.get('saved_id', 'ticket')}", clear_on_submit=True):
+        comment_text = st.text_area(
+            "Add a comment",
+            placeholder="Write a comment to add to this ticket's activity log...",
+            height=90,
+            label_visibility="collapsed",
+        )
+        submitted = st.form_submit_button("Add comment", use_container_width=True)
+
+    if submitted:
+        cleaned_comment = comment_text.strip()
+        if not cleaned_comment:
+            st.warning("Please enter a comment before submitting.")
+            return
+        append_activity_log(
+            ticket_entry,
+            actor="agent",
+            action_type="Comment added",
+            details=cleaned_comment,
+        )
+        persist_ticket_state()
+        st.success("Comment added to activity log.")
+        st.rerun()
+
+
 def urgency_badge_html(urgency: str) -> str:
     urgency = normalize_urgency(urgency)
     css_class = {"low": "badge-low", "medium": "badge-medium", "high": "badge-high"}.get(
@@ -2143,9 +2169,11 @@ if st.session_state.active_view == "Ticket Desk":
             st.markdown("</div>", unsafe_allow_html=True)
     with ticket_right:
         st.markdown('<div class="three-col-header">🧾 Activity Log</div>', unsafe_allow_html=True)
+        selected_ticket = get_selected_ticket(all_tickets)
+        if selected_ticket:
+            render_activity_comment_box(selected_ticket)
         with st.container():
             st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
-            selected_ticket = get_selected_ticket(all_tickets)
             if selected_ticket:
                 render_activity_log(selected_ticket, show_title=False)
             else:
