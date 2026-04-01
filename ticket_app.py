@@ -1,5 +1,7 @@
 import asyncio
+import csv
 import html
+import io
 import random
 import re
 from datetime import datetime, timedelta, timezone
@@ -1048,19 +1050,66 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
     st.markdown('<div class="three-col-header">📊 Analytics center</div>', unsafe_allow_html=True)
 
     all_tickets = open_tickets + closed_tickets + deleted_tickets
+    dated_tickets: list[tuple[dict, datetime]] = []
+    for ticket in all_tickets:
+        created_at = ticket.get("created_at")
+        if not created_at:
+            continue
+        try:
+            created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        dated_tickets.append((ticket, created_dt))
+
+    if dated_tickets:
+        min_created_date = min(created_dt.date() for _, created_dt in dated_tickets)
+        max_created_date = max(created_dt.date() for _, created_dt in dated_tickets)
+        selected_range = st.date_input(
+            "Created date range",
+            value=(min_created_date, max_created_date),
+            min_value=min_created_date,
+            max_value=max_created_date,
+            key="analytics_created_date_range",
+            help="Filters analytics by ticket created date.",
+        )
+    else:
+        today = datetime.now(timezone.utc).date()
+        selected_range = (today, today)
+        st.date_input(
+            "Created date range",
+            value=selected_range,
+            key="analytics_created_date_range_empty",
+            disabled=True,
+            help="No tickets with valid created dates are available.",
+        )
+
+    if isinstance(selected_range, tuple) and len(selected_range) == 2:
+        start_date, end_date = selected_range
+    else:
+        start_date = end_date = selected_range[0] if isinstance(selected_range, tuple) else selected_range
+
+    filtered_tickets: list[dict] = []
+    for ticket, created_dt in dated_tickets:
+        if start_date <= created_dt.date() <= end_date:
+            filtered_tickets.append(ticket)
+
+    filtered_open_tickets = [t for t in filtered_tickets if normalize_status(t.get("status")) in OPEN_STATUSES]
+    filtered_closed_tickets = [t for t in filtered_tickets if normalize_status(t.get("status")) == "completed"]
+    filtered_deleted_tickets = [t for t in filtered_tickets if normalize_status(t.get("status")) == "deleted"]
+
     now_utc = datetime.now(timezone.utc)
-    total_tickets = len(all_tickets)
-    active_tickets = len([t for t in open_tickets if normalize_status(t.get("status")) in {"new", "in_progress"}])
-    blocked_tickets = len([t for t in open_tickets if normalize_status(t.get("status")) == "blocked"])
-    archived_tickets = len(closed_tickets)
-    spam_tickets = len([t for t in deleted_tickets if (t.get("classification") or "").lower() == "spam"])
+    total_tickets = len(filtered_tickets)
+    active_tickets = len([t for t in filtered_open_tickets if normalize_status(t.get("status")) in {"new", "in_progress"}])
+    blocked_tickets = len([t for t in filtered_open_tickets if normalize_status(t.get("status")) == "blocked"])
+    archived_tickets = len(filtered_closed_tickets)
+    spam_tickets = len([t for t in filtered_deleted_tickets if (t.get("classification") or "").lower() == "spam"])
 
     high_urgency_open = 0
     triage_duration_minutes: list[float] = []
     stale_ticket_count = 0
     ticket_age_hours: list[float] = []
 
-    for ticket in all_tickets:
+    for ticket in filtered_tickets:
         status = normalize_status(ticket.get("status"))
         ticket_data = ticket.get("ticket") or {}
         urgency = normalize_urgency(ticket_data.get("urgency"))
@@ -1096,6 +1145,7 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
     avg_ticket_age_hours = (sum(ticket_age_hours) / len(ticket_age_hours)) if ticket_age_hours else 0.0
 
     st.markdown('<div class="analytics-shell">', unsafe_allow_html=True)
+    st.caption(f"Showing tickets created between {start_date.isoformat()} and {end_date.isoformat()}.")
     st.markdown(
         f"""
         <div class="analytics-grid">
@@ -1117,7 +1167,7 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
     st.markdown("</div>", unsafe_allow_html=True)
 
     urgency_totals = {"high": 0, "medium": 0, "low": 0}
-    for ticket in open_tickets + closed_tickets:
+    for ticket in filtered_open_tickets + filtered_closed_tickets:
         urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
         urgency_totals[urgency] += 1
 
@@ -1135,7 +1185,7 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
     st.markdown('<div class="section-title">Recent tickets</div>', unsafe_allow_html=True)
     st.markdown('<div class="analytics-recent-list">', unsafe_allow_html=True)
     all_ticket_map = {
-        ticket.get("saved_id"): ticket for ticket in all_tickets
+        ticket.get("saved_id"): ticket for ticket in filtered_tickets
     }
     recent_viewed_ids = st.session_state.get("recent_viewed_ticket_ids", [])
     recent_viewed_tickets = [all_ticket_map[ticket_id] for ticket_id in recent_viewed_ids if ticket_id in all_ticket_map]
@@ -1161,6 +1211,65 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
                 st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
+
+    export_rows: list[dict] = []
+    for ticket in filtered_tickets:
+        ticket_data = ticket.get("ticket") or {}
+        created_at = ticket.get("created_at", "")
+        first_triage_at = ""
+        triage_minutes = ""
+        for log_entry in ensure_activity_log(ticket):
+            action_type = (log_entry.get("action_type") or "").strip().lower()
+            if "triage" in action_type:
+                first_triage_at = log_entry.get("timestamp", "")
+                break
+        if created_at and first_triage_at:
+            try:
+                created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                triage_dt = datetime.fromisoformat(first_triage_at.replace("Z", "+00:00"))
+                triage_minutes = f"{max(0.0, (triage_dt - created_dt).total_seconds() / 60):.1f}"
+            except ValueError:
+                triage_minutes = ""
+        export_rows.append(
+            {
+                "ticket_id": ticket.get("saved_id", ""),
+                "title": clean_ticket_title(ticket_data.get("title")),
+                "status": normalize_status(ticket.get("status")),
+                "urgency": normalize_urgency(ticket_data.get("urgency")),
+                "classification": ticket.get("classification", ""),
+                "created_at": created_at,
+                "first_triage_at": first_triage_at,
+                "triage_minutes": triage_minutes,
+            }
+        )
+
+    csv_buffer = io.StringIO()
+    writer = csv.DictWriter(
+        csv_buffer,
+        fieldnames=[
+            "ticket_id",
+            "title",
+            "status",
+            "urgency",
+            "classification",
+            "created_at",
+            "first_triage_at",
+            "triage_minutes",
+        ],
+    )
+    writer.writeheader()
+    if export_rows:
+        writer.writerows(export_rows)
+
+    export_left, _ = st.columns([1, 4])
+    with export_left:
+        st.download_button(
+            "Export CSV",
+            data=csv_buffer.getvalue().encode("utf-8"),
+            file_name=f"analytics_report_{start_date.isoformat()}_{end_date.isoformat()}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
 
 
 if "open_tickets" not in st.session_state:
