@@ -1670,7 +1670,6 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
     for idx, (label, queue_key, deleted_filter) in enumerate(queue_jump_actions):
         if queue_jump_cols[idx].button(f"Open {label}", key=f"analytics_jump_{label.replace(' ', '_').lower()}", use_container_width=True):
             st.session_state.active_queue = queue_key
-            st.session_state.queue_focus = queue_key
             st.session_state.queue_sidebar_filter = deleted_filter
             st.session_state.pending_view = "Triage Workspace"
             st.rerun()
@@ -1869,6 +1868,8 @@ if st.session_state.active_view not in view_options:
 queue_options = ["open", "blocked", "archive", "deleted"]
 if st.session_state.active_queue not in queue_options:
     st.session_state.active_queue = "open"
+if st.session_state.get("queue_focus") != st.session_state.active_queue:
+    st.session_state.queue_focus = st.session_state.active_queue
 if "queue_sidebar_filter" not in st.session_state:
     st.session_state.queue_sidebar_filter = "all"
 
