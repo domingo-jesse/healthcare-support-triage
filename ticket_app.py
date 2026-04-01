@@ -1220,15 +1220,15 @@ def _build_status_distribution_html(filtered_tickets: list[dict]) -> str:
     for label, count in status_counts.items():
         percentage = (count / total) * 100
         rows.append(
-            f"""
-            <div class="analytics-bar-row">
-                <span>{label}</span>
-                <div class="analytics-bar-track">
-                    <div class="analytics-bar-fill" style="--target-width:{percentage:.1f}%; background:{status_color[label]};"></div>
-                </div>
-                <span>{count}</span>
-            </div>
-            """
+            (
+                '<div class="analytics-bar-row">'
+                f"<span>{label}</span>"
+                '<div class="analytics-bar-track">'
+                f'<div class="analytics-bar-fill" style="--target-width:{percentage:.1f}%; background:{status_color[label]};"></div>'
+                "</div>"
+                f"<span>{count}</span>"
+                "</div>"
+            )
         )
     return f'<div class="analytics-bar-stack">{"".join(rows)}</div>'
 
