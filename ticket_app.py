@@ -49,8 +49,8 @@ st.markdown(
             padding-right: 1.5rem;
         }
         section[data-testid="stSidebar"] {
-            min-width: clamp(260px, 22vw, 360px) !important;
-            max-width: clamp(260px, 22vw, 360px) !important;
+            min-width: clamp(340px, 30vw, 500px) !important;
+            max-width: clamp(340px, 30vw, 500px) !important;
         }
         section[data-testid="stSidebar"] > div {
             width: 100% !important;
@@ -2133,7 +2133,6 @@ if st.session_state.active_view == "Ticket Desk":
     ticket_left, ticket_right = st.columns([1.75, 1.25], gap="large")
     with ticket_left:
         st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
-        render_main_queue_panel()
         with st.container():
             st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
             render_selected_ticket_details(
