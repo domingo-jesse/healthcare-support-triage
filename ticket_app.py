@@ -964,20 +964,16 @@ deleted_tickets = rank_tickets(list(st.session_state.deleted_tickets))
 all_tickets = open_tickets + closed_tickets + deleted_tickets
 
 view_options = ["Triage Workspace", "Ticket Desk", "Analytics Center"]
-active_view = (
-    st.session_state.active_view
-    if st.session_state.active_view in view_options
-    else "Triage Workspace"
-)
-selected_view = st.radio(
+if st.session_state.active_view not in view_options:
+    st.session_state.active_view = "Triage Workspace"
+
+st.radio(
     "Workspace view",
     options=view_options,
     horizontal=True,
-    index=view_options.index(active_view),
+    key="active_view",
     label_visibility="collapsed",
 )
-if selected_view != st.session_state.active_view:
-    st.session_state.active_view = selected_view
 
 submitted = False
 message = ""
@@ -1144,17 +1140,16 @@ if st.session_state.active_view == "Triage Workspace":
             "deleted": f"Deleted ({len(deleted_tickets)})",
         }
         queue_options = ["open", "blocked", "archive", "deleted"]
-        active_queue = st.session_state.active_queue if st.session_state.active_queue in queue_options else "open"
-        queue_focus = st.radio(
+        if st.session_state.active_queue not in queue_options:
+            st.session_state.active_queue = "open"
+        st.radio(
             "Queue focus",
             options=queue_options,
             format_func=lambda key: queue_labels[key],
             horizontal=True,
-            index=queue_options.index(active_queue),
+            key="active_queue",
             label_visibility="collapsed",
         )
-        if queue_focus != st.session_state.active_queue:
-            st.session_state.active_queue = queue_focus
         selected_section = next(
             (section for section in queue_sections if section[2] == st.session_state.active_queue),
             queue_sections[0],
