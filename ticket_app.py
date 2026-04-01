@@ -937,6 +937,15 @@ def get_selected_ticket(all_tickets: list[dict]) -> dict | None:
     return next((entry for entry in all_tickets if entry.get("saved_id") == selected_id), None)
 
 
+def track_recent_ticket_view(ticket_id: str | None) -> None:
+    if not ticket_id:
+        return
+    recent_views = st.session_state.setdefault("recent_viewed_ticket_ids", [])
+    recent_views = [existing_id for existing_id in recent_views if existing_id != ticket_id]
+    recent_views.insert(0, ticket_id)
+    st.session_state.recent_viewed_ticket_ids = recent_views[:5]
+
+
 def render_new_ticket_search_panel(form_key: str) -> tuple[bool, str]:
     st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
@@ -1003,16 +1012,31 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
     st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Recent tickets</div>', unsafe_allow_html=True)
-    recent = sorted(open_tickets + closed_tickets + deleted_tickets, key=lambda t: t.get("created_at", ""), reverse=True)[:8]
-    if not recent:
-        st.caption("No tickets yet. Run triage from the workspace tab to populate analytics.")
+    all_ticket_map = {
+        ticket.get("saved_id"): ticket for ticket in (open_tickets + closed_tickets + deleted_tickets)
+    }
+    recent_viewed_ids = st.session_state.get("recent_viewed_ticket_ids", [])
+    recent_viewed_tickets = [all_ticket_map[ticket_id] for ticket_id in recent_viewed_ids if ticket_id in all_ticket_map]
+
+    if not recent_viewed_tickets:
+        st.caption("No recently viewed tickets yet. Open a ticket to populate this list.")
     else:
-        for ticket in recent:
+        for ticket in recent_viewed_tickets[:5]:
             ticket_data = ticket.get("ticket") or {}
             title = clean_ticket_title(ticket_data.get("title"))
             status = STATUS_LABELS.get(normalize_status(ticket.get("status")), "Deleted")
             urgency = normalize_urgency(ticket_data.get("urgency"))
-            st.markdown(f"- **{title}** · {status} · {urgency.title()} · `{ticket.get('saved_id', 'N/A')}`")
+            ticket_id = ticket.get("saved_id", "N/A")
+            if st.button(
+                f"{title} · {status} · {urgency.title()} · #{ticket_id}",
+                key=f"analytics_recent_{ticket_id}",
+                use_container_width=True,
+                help=f"Open ticket #{ticket_id} in Ticket Desk",
+            ):
+                st.session_state.selected_ticket_id = ticket_id
+                track_recent_ticket_view(ticket_id)
+                st.session_state.pending_view = "Ticket Desk"
+                st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -1041,6 +1065,8 @@ if "queue_focus" not in st.session_state:
     st.session_state.queue_focus = st.session_state.active_queue
 if "triage_feedback" not in st.session_state:
     st.session_state.triage_feedback = None
+if "recent_viewed_ticket_ids" not in st.session_state:
+    st.session_state.recent_viewed_ticket_ids = []
 if "active_view" not in st.session_state:
     st.session_state.active_view = "Triage Workspace"
 if "pending_view" not in st.session_state:
@@ -1254,6 +1280,7 @@ if st.session_state.active_view == "Triage Workspace":
                     help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
                 ):
                     st.session_state.selected_ticket_id = ticket_id
+                    track_recent_ticket_view(ticket_id)
                     st.session_state.active_queue = section_key
                     st.session_state.pending_view = "Ticket Desk"
                     st.rerun()
@@ -1395,6 +1422,7 @@ if submitted:
                 st.session_state.active_queue = "open"
             persist_ticket_state()
             st.session_state.selected_ticket_id = saved_entry["saved_id"]
+            track_recent_ticket_view(saved_entry["saved_id"])
             st.session_state.pending_view = "Ticket Desk"
             st.session_state.triage_feedback = {
                 "type": "success",
