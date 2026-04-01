@@ -42,10 +42,18 @@ st.markdown(
         .block-container {
             padding-top: 1.25rem;
             padding-bottom: 2rem;
-            max-width: 1480px;
-            margin: 0 auto;
+            max-width: 100%;
+            width: 100%;
+            margin: 0;
             padding-left: 1.5rem;
             padding-right: 1.5rem;
+        }
+        section[data-testid="stSidebar"] {
+            min-width: clamp(260px, 22vw, 360px) !important;
+            max-width: clamp(260px, 22vw, 360px) !important;
+        }
+        section[data-testid="stSidebar"] > div {
+            width: 100% !important;
         }
         .three-col-header {
             font-size: 1.05rem;
@@ -542,6 +550,9 @@ st.markdown(
             color: #94a3b8;
             margin-top: 0.14rem;
         }
+        .queue-shell div[data-testid="stButton"] > button {
+            white-space: nowrap;
+        }
         section[data-testid="stSidebar"] div[data-baseweb="radio"] label {
             padding: 0.32rem 0.42rem;
             border-radius: 8px;
@@ -595,6 +606,10 @@ st.markdown(
             .block-container {
                 padding-left: 1rem;
                 padding-right: 1rem;
+            }
+            section[data-testid="stSidebar"] {
+                min-width: 250px !important;
+                max-width: 250px !important;
             }
         }
     </style>
@@ -1507,9 +1522,10 @@ def render_compact_queue_rows(queue_key: str, tickets: list[dict], scope: str) -
         title = clean_ticket_title(ticket_data.get("title"))
         status_label = STATUS_LABELS.get(normalize_status(ticket.get("status")), "Open")
         updated_label = format_relative_time(ticket.get("created_at"))
+        column_widths = [0.95, 3.95, 1.2, 1.25] if scope == "sidebar" else [0.85, 4.2, 1.5, 1.15]
 
         with st.container():
-            c1, c2, c3, c4 = st.columns([0.85, 4.2, 1.5, 1.15], gap="small")
+            c1, c2, c3, c4 = st.columns(column_widths, gap="small")
             with c1:
                 st.markdown(
                     f'<span class="{priority_class}">{html.escape(urgency_label)}</span>',
