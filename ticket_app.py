@@ -1659,6 +1659,21 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
         """,
         unsafe_allow_html=True,
     )
+    queue_jump_cols = st.columns(5)
+    queue_jump_actions = [
+        ("Total tickets", "open", "all"),
+        ("Active", "open", "all"),
+        ("Blocked", "blocked", "all"),
+        ("Archived", "archive", "all"),
+        ("Spam", "deleted", "spam"),
+    ]
+    for idx, (label, queue_key, deleted_filter) in enumerate(queue_jump_actions):
+        if queue_jump_cols[idx].button(f"Open {label}", key=f"analytics_jump_{label.replace(' ', '_').lower()}", use_container_width=True):
+            st.session_state.active_queue = queue_key
+            st.session_state.queue_focus = queue_key
+            st.session_state.queue_sidebar_filter = deleted_filter
+            st.session_state.pending_view = "Triage Workspace"
+            st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
     urgency_totals = {"high": 0, "medium": 0, "low": 0}
@@ -1851,6 +1866,85 @@ view_options = ["Triage Workspace", "Ticket Desk", "Analytics Center"]
 if st.session_state.active_view not in view_options:
     st.session_state.active_view = "Triage Workspace"
 
+queue_options = ["open", "blocked", "archive", "deleted"]
+if st.session_state.active_queue not in queue_options:
+    st.session_state.active_queue = "open"
+if "queue_sidebar_filter" not in st.session_state:
+    st.session_state.queue_sidebar_filter = "all"
+
+
+def render_queue_sidebar() -> None:
+    blocked_tickets = [t for t in open_tickets if normalize_status(t.get("status")) == "blocked"]
+    active_open_tickets = [t for t in open_tickets if normalize_status(t.get("status")) in {"new", "in_progress"}]
+    spam_deleted_tickets = [t for t in deleted_tickets if (t.get("classification") or "").lower() == "spam"]
+    non_spam_deleted_tickets = [t for t in deleted_tickets if (t.get("classification") or "").lower() != "spam"]
+
+    queue_labels = {
+        "open": f"Open ({len(active_open_tickets)})",
+        "blocked": f"Blocked ({len(blocked_tickets)})",
+        "archive": f"Archived ({len(closed_tickets)})",
+        "deleted": f"Deleted ({len(deleted_tickets)})",
+    }
+    with st.sidebar:
+        st.markdown("### 🎫 Ticket queues")
+        selected_queue = st.radio(
+            "Queue focus",
+            options=queue_options,
+            format_func=lambda key: queue_labels[key],
+            key="queue_focus",
+            label_visibility="collapsed",
+        )
+        st.session_state.active_queue = selected_queue
+
+        queue_map = {
+            "open": ("🟢 Open queue", active_open_tickets),
+            "blocked": ("⛔ Blocked queue", blocked_tickets),
+            "archive": ("📦 Archived queue", closed_tickets),
+            "deleted": ("🗑️ Deleted / spam", deleted_tickets),
+        }
+        queue_title, queue_tickets = queue_map[selected_queue]
+        st.caption(queue_title)
+
+        if selected_queue == "deleted":
+            st.radio(
+                "Deleted filter",
+                options=["all", "deleted", "spam"],
+                format_func=lambda value: {"all": "All", "deleted": "Deleted only", "spam": "Spam only"}[value],
+                horizontal=True,
+                key="queue_sidebar_filter",
+                label_visibility="collapsed",
+            )
+            if st.session_state.queue_sidebar_filter == "spam":
+                queue_tickets = spam_deleted_tickets
+            elif st.session_state.queue_sidebar_filter == "deleted":
+                queue_tickets = non_spam_deleted_tickets
+        else:
+            st.session_state.queue_sidebar_filter = "all"
+
+        if not queue_tickets:
+            st.caption("No tickets in this queue.")
+            return
+
+        for idx, ticket in enumerate(queue_tickets):
+            ticket_id = ticket.get("saved_id", "")
+            ticket_data = ticket.get("ticket") or {}
+            title = clean_ticket_title(ticket_data.get("title"))
+            urgency = normalize_urgency(ticket_data.get("urgency")).title()
+            button_key = f"sidebar_queue_{selected_queue}_{ticket_id or idx}"
+            if st.button(
+                f"● {title} [{urgency}]",
+                key=button_key,
+                use_container_width=True,
+                help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
+            ):
+                st.session_state.selected_ticket_id = ticket_id
+                track_recent_ticket_view(ticket_id)
+                st.session_state.pending_view = "Ticket Desk"
+                st.rerun()
+
+
+render_queue_sidebar()
+
 st.radio(
     "Workspace view",
     options=view_options,
@@ -1863,206 +1957,12 @@ submitted = False
 message = ""
 
 if st.session_state.active_view == "Triage Workspace":
-    left_col, right_col = st.columns([1.35, 1.1], gap="large")
-
-    with left_col:
-        st.markdown('<div class="three-col-header">🎫 Ticket queues</div>', unsafe_allow_html=True)
-        blocked_tickets = [t for t in open_tickets if normalize_status(t.get("status")) == "blocked"]
-        active_open_tickets = [t for t in open_tickets if normalize_status(t.get("status")) in {"new", "in_progress"}]
-
-        def move_ticket_to_queue(ticket: dict, target_queue: str) -> None:
-            ticket_id = ticket.get("saved_id")
-            if not ticket_id:
-                return
-
-            open_match = next((t for t in st.session_state.open_tickets if t.get("saved_id") == ticket_id), None)
-            closed_match = next((t for t in st.session_state.closed_tickets if t.get("saved_id") == ticket_id), None)
-            deleted_match = next((t for t in st.session_state.deleted_tickets if t.get("saved_id") == ticket_id), None)
-            active_ticket = open_match or closed_match or deleted_match or ticket
-
-            st.session_state.open_tickets = [t for t in st.session_state.open_tickets if t.get("saved_id") != ticket_id]
-            st.session_state.closed_tickets = [t for t in st.session_state.closed_tickets if t.get("saved_id") != ticket_id]
-            st.session_state.deleted_tickets = [t for t in st.session_state.deleted_tickets if t.get("saved_id") != ticket_id]
-
-            previous_status = normalize_status(active_ticket.get("status"))
-            if target_queue == "open":
-                active_ticket["status"] = "in_progress"
-                st.session_state.open_tickets.append(active_ticket)
-            elif target_queue == "blocked":
-                active_ticket["status"] = "blocked"
-                st.session_state.open_tickets.append(active_ticket)
-            elif target_queue == "archived":
-                active_ticket["status"] = "completed"
-                st.session_state.closed_tickets.append(active_ticket)
-            elif target_queue == "deleted":
-                active_ticket["status"] = "deleted"
-                st.session_state.deleted_tickets.append(active_ticket)
-
-            new_status = normalize_status(active_ticket.get("status"))
-            if new_status != previous_status:
-                append_activity_log(
-                    active_ticket,
-                    actor="human_agent",
-                    action_type="Status changed",
-                    details=f"Status updated from {previous_status} to {new_status}.",
-                )
-            st.session_state.active_queue = "archive" if target_queue == "archived" else target_queue
-            persist_ticket_state()
-
-        def ticket_queue_label(ticket: dict, section_key: str) -> str:
-            if section_key.startswith("open_"):
-                return "Open Queue"
-            if section_key.startswith("blocked_"):
-                return "Blocked Queue"
-            if section_key == "archive":
-                return "Archived Queue"
-            if section_key.startswith("deleted"):
-                return "Deleted / Spam"
-            status = normalize_status(ticket.get("status"))
-            if status in {"new", "in_progress"}:
-                return "Open Queue"
-            if status == "blocked":
-                return "Blocked Queue"
-            if status == "completed":
-                return "Archived Queue"
-            return "Deleted / Spam"
-
-        def render_ticket_buttons(section_key: str, tickets: list[dict]) -> None:
-            if not tickets:
-                st.caption("No tickets in this section.")
-                return
-            for idx, ticket in enumerate(tickets):
-                ticket_id = ticket.get("saved_id", "")
-                widget_suffix = f"{ticket_id or 'noid'}_{idx}"
-                title = clean_ticket_title((ticket.get("ticket") or {}).get("title"))
-                is_selected = st.session_state.selected_ticket_id == ticket_id
-                widget_key = f"queue_{section_key}_{widget_suffix}"
-                urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
-                urgency_styles = {
-                    "high": {
-                        "accent": "#dc2626",
-                        "border": "#e2e8f0",
-                        "bg": "#ffffff",
-                        "text": "#0f172a",
-                        "selected_border": "#cbd5e1",
-                        "selected_shadow": "rgba(148, 163, 184, 0.25)",
-                        "selected_bg": "#f8fafc",
-                    },
-                    "medium": {
-                        "accent": "#f59e0b",
-                        "border": "#e2e8f0",
-                        "bg": "#ffffff",
-                        "text": "#0f172a",
-                        "selected_border": "#cbd5e1",
-                        "selected_shadow": "rgba(148, 163, 184, 0.25)",
-                        "selected_bg": "#f8fafc",
-                    },
-                    "low": {
-                        "accent": "#22c55e",
-                        "border": "#e2e8f0",
-                        "bg": "#ffffff",
-                        "text": "#0f172a",
-                        "selected_border": "#cbd5e1",
-                        "selected_shadow": "rgba(148, 163, 184, 0.25)",
-                        "selected_bg": "#f8fafc",
-                    },
-                }
-                button_style = urgency_styles.get(urgency, urgency_styles["medium"])
-                urgency_label = urgency.title()
-                selection_css = ""
-                if is_selected:
-                    selection_css = f"""
-                    .st-key-{widget_key} button {{
-                        border-color: {button_style["selected_border"]} !important;
-                        box-shadow: inset 0 0 0 1px {button_style["selected_shadow"]} !important;
-                        background: {button_style["selected_bg"]} !important;
-                    }}
-                    """
-                st.markdown(
-                    f"""
-                    <style>
-                    .st-key-{widget_key} button {{
-                        border-radius: 10px;
-                        border: 1px solid {button_style["border"]} !important;
-                        box-shadow: inset 4px 0 0 {button_style["accent"]};
-                        min-height: 50px;
-                        padding: 0.55rem 0.65rem;
-                        text-align: left;
-                        font-size: 0.86rem;
-                        font-weight: 600;
-                        transition: all 120ms ease-in-out;
-                        background: {button_style["bg"]} !important;
-                        color: {button_style["text"]} !important;
-                        white-space: normal;
-                    }}
-                    .st-key-{widget_key} button:hover {{
-                        transform: translateY(-1px);
-                        filter: brightness(0.96);
-                    }}
-                    {selection_css}
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                if st.button(
-                    f"● {title}   [{urgency_label}]",
-                    key=widget_key,
-                    use_container_width=True,
-                    help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
-                ):
-                    st.session_state.selected_ticket_id = ticket_id
-                    track_recent_ticket_view(ticket_id)
-                    st.session_state.active_queue = section_key
-                    st.session_state.pending_view = "Ticket Desk"
-                    st.rerun()
-
-        queue_sections = [
-            ("🟢 Open Queue", "Ranked by urgency", "open", active_open_tickets),
-            ("⛔ Blocked Queue", "Tickets needing unblocking", "blocked", blocked_tickets),
-            ("📦 Archived Queue", "Completed tickets", "archive", closed_tickets),
-            ("🗑️ Deleted / Spam", "Deleted and spam tickets", "deleted", deleted_tickets),
-        ]
-        queue_labels = {
-            "open": f"Open ({len(active_open_tickets)})",
-            "blocked": f"Blocked ({len(blocked_tickets)})",
-            "archive": f"Archived ({len(closed_tickets)})",
-            "deleted": f"Deleted ({len(deleted_tickets)})",
-        }
-        queue_options = ["open", "blocked", "archive", "deleted"]
-        if st.session_state.active_queue not in queue_options:
-            st.session_state.active_queue = "open"
-        if st.session_state.queue_focus not in queue_options:
-            st.session_state.queue_focus = st.session_state.active_queue
-        if st.session_state.queue_focus != st.session_state.active_queue:
-            st.session_state.queue_focus = st.session_state.active_queue
-        st.radio(
-            "Queue focus",
-            options=queue_options,
-            format_func=lambda key: queue_labels[key],
-            horizontal=True,
-            key="queue_focus",
-            label_visibility="collapsed",
-        )
-        st.session_state.active_queue = st.session_state.queue_focus
-        selected_section = next(
-            (section for section in queue_sections if section[2] == st.session_state.active_queue),
-            queue_sections[0],
-        )
-        with st.container():
-            st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
-            queue_name, _queue_caption, queue_key, queue_tickets = selected_section
-            st.markdown(
-                f'<div class="queue-section-title-lg">{queue_name}</div>',
-                unsafe_allow_html=True,
-            )
-            render_ticket_buttons(queue_key, queue_tickets)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-    with right_col:
-        workspace_submitted, workspace_message = render_new_ticket_search_panel("triage_form_workspace")
-        if workspace_submitted:
-            submitted = True
-            message = workspace_message
+    st.markdown('<div class="three-col-header">🎯 Triage workspace</div>', unsafe_allow_html=True)
+    st.caption("Use the collapsible sidebar to switch between Open, Blocked, Archived, and Deleted/Spam queues.")
+    workspace_submitted, workspace_message = render_new_ticket_search_panel("triage_form_workspace")
+    if workspace_submitted:
+        submitted = True
+        message = workspace_message
 
 if st.session_state.active_view == "Ticket Desk":
     ticket_left, ticket_right = st.columns([1.75, 1.25], gap="large")
