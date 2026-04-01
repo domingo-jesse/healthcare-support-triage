@@ -692,8 +692,6 @@ def render_result(
         st.caption(f"Ticket ID: {ticket.get('ticketId', 'N/A')}")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
-
     root_cause, next_steps, suggested_response = parse_resolution_text(result["resolution"])
 
     with st.container():
@@ -704,15 +702,11 @@ def render_result(
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
-
     with st.container():
         st.markdown('<div class="panel-card">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Likely Root Cause</div>', unsafe_allow_html=True)
         st.write(root_cause if root_cause else "No root cause was extracted.")
         st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
 
     with st.container():
         st.markdown('<div class="panel-card">', unsafe_allow_html=True)
@@ -727,7 +721,6 @@ def render_result(
         st.markdown("</div>", unsafe_allow_html=True)
 
     if submitted_request:
-        st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
         st.markdown(
             '<div class="panel-card"><div class="section-title">Submitted Request</div>',
             unsafe_allow_html=True,
@@ -750,7 +743,7 @@ def render_empty_result_placeholder() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def render_activity_log(ticket_entry: dict) -> None:
+def render_activity_log(ticket_entry: dict, show_title: bool = True) -> None:
     entries = ensure_activity_log(ticket_entry)
     sorted_entries = sorted(
         entries,
@@ -758,7 +751,8 @@ def render_activity_log(ticket_entry: dict) -> None:
         reverse=True,
     )
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Activity Log</div>', unsafe_allow_html=True)
+    if show_title:
+        st.markdown('<div class="section-title">Activity Log</div>', unsafe_allow_html=True)
     if not sorted_entries:
         st.caption("No activity recorded yet.")
     else:
@@ -923,7 +917,6 @@ def render_selected_ticket_details(
                 st.markdown("</div>", unsafe_allow_html=True)
 
             if show_activity_log:
-                st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
                 render_activity_log(selected)
         else:
             render_empty_result_placeholder()
@@ -1356,7 +1349,7 @@ if st.session_state.active_view == "Ticket Desk":
             st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
             selected_ticket = get_selected_ticket(all_tickets)
             if selected_ticket:
-                render_activity_log(selected_ticket)
+                render_activity_log(selected_ticket, show_title=False)
             else:
                 st.markdown(
                     '<div class="panel-card"><div class="section-title">Activity Log</div>',
