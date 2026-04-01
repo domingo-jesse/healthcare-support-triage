@@ -1,7 +1,8 @@
 import asyncio
 import html
+import random
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 
@@ -419,13 +420,20 @@ DEFAULT_PRELOADED_TICKETS = [
 
 def load_tickets() -> list[dict]:
     # Demo mode: initialize each session with a curated default queue.
-    now = datetime.now(timezone.utc)
+    window_start = datetime(2026, 3, 31, 0, 0, tzinfo=timezone.utc)
+    window_end = datetime(2026, 4, 30, 23, 59, 59, tzinfo=timezone.utc)
+    total_seconds = int((window_end - window_start).total_seconds())
+    rng = random.Random()
     preloaded_tickets: list[dict] = []
     for index, template in enumerate(DEFAULT_PRELOADED_TICKETS, start=1):
+        created_at = (
+            window_start + timedelta(seconds=rng.randint(0, total_seconds))
+        ).replace(microsecond=0)
+        ai_processed_at = created_at + timedelta(minutes=rng.randint(1, 45))
         preloaded_tickets.append(
             {
                 "saved_id": f"{index:03d}",
-                "created_at": (now.replace(microsecond=0)).isoformat(),
+                "created_at": created_at.isoformat(),
                 "status": "new",
                 "message": (
                     f"Title: {template['title']}\n"
@@ -450,14 +458,14 @@ def load_tickets() -> list[dict]:
                     make_log_entry(
                         actor="system",
                         action_type="Request created",
-                        details=f"Ticket {index:03d} was preloaded into triage.",
-                        timestamp=(now.replace(microsecond=0)).isoformat(),
+                        details=f"Ticket {index:03d} was created in the triage queue.",
+                        timestamp=created_at.isoformat(),
                     ),
                     make_log_entry(
                         actor="ai",
                         action_type="AI triage completed",
-                        details="Preloaded ticket was analyzed and added to the default queue.",
-                        timestamp=(now.replace(microsecond=0)).isoformat(),
+                        details="Ticket was analyzed and added to the triage queue.",
+                        timestamp=ai_processed_at.isoformat(),
                     ),
                 ],
             }
