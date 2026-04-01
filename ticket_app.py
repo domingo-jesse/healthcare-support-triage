@@ -256,6 +256,33 @@ st.markdown(
         .queue-move-control {
             margin-top: 0.5rem;
         }
+        .activity-log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+        .activity-log-item {
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            padding: 0.55rem 0.65rem;
+        }
+        .activity-log-meta {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            margin-bottom: 0.15rem;
+        }
+        .activity-log-action {
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.1rem;
+        }
+        .activity-log-details {
+            font-size: 0.82rem;
+            color: #334155;
+            line-height: 1.35;
+        }
         .queue-section-title-lg {
             font-size: 1.9rem;
             line-height: 1.15;
@@ -419,6 +446,38 @@ def clean_ticket_title(title: str | None) -> str:
     return cleaned or "Untitled ticket"
 
 
+def make_log_entry(actor: str, action_type: str, details: str, timestamp: str | None = None) -> dict:
+    return {
+        "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
+        "actor": actor.strip().lower(),
+        "action_type": action_type.strip(),
+        "details": details.strip(),
+    }
+
+
+def ensure_activity_log(ticket_entry: dict) -> list[dict]:
+    existing = ticket_entry.get("activity_log")
+    if isinstance(existing, list):
+        return existing
+
+    ticket_id = ticket_entry.get("saved_id", "N/A")
+    created_at = ticket_entry.get("created_at") or datetime.now(timezone.utc).isoformat()
+    ticket_entry["activity_log"] = [
+        make_log_entry(
+            "system",
+            "Request created",
+            f"Ticket {ticket_id} was created and added to triage.",
+            timestamp=created_at,
+        )
+    ]
+    return ticket_entry["activity_log"]
+
+
+def append_activity_log(ticket_entry: dict, actor: str, action_type: str, details: str) -> None:
+    log = ensure_activity_log(ticket_entry)
+    log.append(make_log_entry(actor=actor, action_type=action_type, details=details))
+
+
 def urgency_badge_html(urgency: str) -> str:
     urgency = normalize_urgency(urgency)
     css_class = {"low": "badge-low", "medium": "badge-medium", "high": "badge-high"}.get(
@@ -576,6 +635,43 @@ def render_empty_result_placeholder() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def render_activity_log(ticket_entry: dict) -> None:
+    entries = ensure_activity_log(ticket_entry)
+    sorted_entries = sorted(
+        entries,
+        key=lambda entry: entry.get("timestamp", ""),
+        reverse=True,
+    )
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Activity Log</div>', unsafe_allow_html=True)
+    if not sorted_entries:
+        st.caption("No activity recorded yet.")
+    else:
+        st.markdown('<div class="activity-log-list">', unsafe_allow_html=True)
+        for entry in sorted_entries:
+            timestamp = entry.get("timestamp", "")
+            try:
+                parsed_ts = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                display_ts = parsed_ts.strftime("%Y-%m-%d %H:%M UTC")
+            except ValueError:
+                display_ts = timestamp or "Unknown time"
+            actor = (entry.get("actor") or "system").replace("_", " ").upper()
+            action_type = entry.get("action_type") or "Activity updated"
+            details = entry.get("details") or ""
+            st.markdown(
+                (
+                    '<div class="activity-log-item">'
+                    f'<div class="activity-log-meta">{html.escape(display_ts)} · {html.escape(actor)}</div>'
+                    f'<div class="activity-log-action">{html.escape(action_type)}</div>'
+                    f'<div class="activity-log-details">{html.escape(details)}</div>'
+                    "</div>"
+                ),
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def persist_ticket_state() -> None:
     save_tickets(st.session_state.open_tickets)
     save_closed_tickets(st.session_state.closed_tickets)
@@ -632,14 +728,17 @@ if "open_tickets" not in st.session_state:
     st.session_state.open_tickets = load_tickets()
     for entry in st.session_state.open_tickets:
         entry["status"] = normalize_status(entry.get("status"))
+        ensure_activity_log(entry)
 if "closed_tickets" not in st.session_state:
     st.session_state.closed_tickets = load_closed_tickets()
     for entry in st.session_state.closed_tickets:
         entry["status"] = "completed"
+        ensure_activity_log(entry)
 if "deleted_tickets" not in st.session_state:
     st.session_state.deleted_tickets = load_deleted_tickets()
     for entry in st.session_state.deleted_tickets:
         entry["status"] = "deleted"
+        ensure_activity_log(entry)
 if "selected_ticket_id" not in st.session_state:
     st.session_state.selected_ticket_id = None
 if "message_input" not in st.session_state:
@@ -654,6 +753,7 @@ migrated_open_tickets = []
 migrated_closed_tickets = list(st.session_state.closed_tickets)
 migrated_deleted_tickets = list(st.session_state.deleted_tickets)
 for ticket in st.session_state.open_tickets:
+    ensure_activity_log(ticket)
     if normalize_status(ticket.get("status")) == "completed":
         ticket["status"] = "completed"
         migrated_closed_tickets.append(ticket)
@@ -666,6 +766,10 @@ for ticket in st.session_state.open_tickets:
 st.session_state.open_tickets = migrated_open_tickets
 st.session_state.closed_tickets = migrated_closed_tickets
 st.session_state.deleted_tickets = migrated_deleted_tickets
+for ticket in st.session_state.closed_tickets:
+    ensure_activity_log(ticket)
+for ticket in st.session_state.deleted_tickets:
+    ensure_activity_log(ticket)
 persist_ticket_state()
 
 st.markdown(
@@ -712,6 +816,7 @@ with workspace_tab:
             st.session_state.closed_tickets = [t for t in st.session_state.closed_tickets if t.get("saved_id") != ticket_id]
             st.session_state.deleted_tickets = [t for t in st.session_state.deleted_tickets if t.get("saved_id") != ticket_id]
 
+            previous_status = normalize_status(active_ticket.get("status"))
             if target_queue == "open":
                 active_ticket["status"] = "in_progress"
                 st.session_state.open_tickets.append(active_ticket)
@@ -725,6 +830,14 @@ with workspace_tab:
                 active_ticket["status"] = "deleted"
                 st.session_state.deleted_tickets.append(active_ticket)
 
+            new_status = normalize_status(active_ticket.get("status"))
+            if new_status != previous_status:
+                append_activity_log(
+                    active_ticket,
+                    actor="human_agent",
+                    action_type="Status changed",
+                    details=f"Status updated from {previous_status} to {new_status}.",
+                )
             st.session_state.active_queue = "archive" if target_queue == "archived" else target_queue
             persist_ticket_state()
 
@@ -911,6 +1024,34 @@ with workspace_tab:
                         or classification_choice != default_classification
                         or normalized_title != clean_ticket_title(selected_ticket.get("title"))
                     ):
+                        if urgency_choice != current_urgency:
+                            append_activity_log(
+                                selected,
+                                actor="human_agent",
+                                action_type="Priority changed",
+                                details=f"Urgency changed from {current_urgency} to {urgency_choice}.",
+                            )
+                        if progress_choice != current_status:
+                            append_activity_log(
+                                selected,
+                                actor="human_agent",
+                                action_type="Status changed",
+                                details=f"Status changed from {current_status} to {progress_choice}.",
+                            )
+                        if classification_choice != default_classification:
+                            append_activity_log(
+                                selected,
+                                actor="human_agent",
+                                action_type="Classification changed",
+                                details=f"Classification changed from {default_classification} to {classification_choice}.",
+                            )
+                        if normalized_title != clean_ticket_title(selected_ticket.get("title")):
+                            append_activity_log(
+                                selected,
+                                actor="human_agent",
+                                action_type="Title updated",
+                                details=f"Title updated to '{normalized_title}'.",
+                            )
                         selected_ticket["urgency"] = urgency_choice
                         selected_ticket["title"] = normalized_title
                         selected["status"] = progress_choice
@@ -969,6 +1110,8 @@ with workspace_tab:
                         move_ticket_to_queue(selected, queue_targets[selected_label])
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
+                    st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
+                    render_activity_log(selected)
                 else:
                     render_empty_result_placeholder()
             else:
@@ -1039,6 +1182,20 @@ with workspace_tab:
                     "ticket": ticket_data,
                     "resolution": result["resolution"],
                 }
+                ensure_activity_log(saved_entry)
+                append_activity_log(
+                    saved_entry,
+                    actor="ai",
+                    action_type="AI triage completed",
+                    details="Initial triage analysis and resolution draft generated.",
+                )
+                if result["classification"] == "spam":
+                    append_activity_log(
+                        saved_entry,
+                        actor="system",
+                        action_type="Status changed",
+                        details="Ticket classified as spam and moved to deleted queue.",
+                    )
                 if result["classification"] == "spam":
                     st.session_state.deleted_tickets.append(saved_entry)
                     st.session_state.active_queue = "deleted"
