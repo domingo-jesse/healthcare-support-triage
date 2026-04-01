@@ -672,6 +672,175 @@ def render_activity_log(ticket_entry: dict) -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def render_selected_ticket_details(
+    all_tickets: list[dict],
+    show_queue_move: bool = False,
+    ticket_queue_label_fn=None,
+    move_ticket_fn=None,
+) -> None:
+    if st.session_state.selected_ticket_id:
+        selected = next(
+            (
+                entry
+                for entry in all_tickets
+                if entry.get("saved_id") == st.session_state.selected_ticket_id
+            ),
+            None,
+        )
+        if selected:
+            selected_ticket = selected.get("ticket") or {}
+            current_urgency = normalize_urgency(selected_ticket.get("urgency"))
+            current_status = normalize_status(selected.get("status"))
+            default_status = current_status if current_status in PROGRESS_OPTIONS else "in_progress"
+            default_urgency = current_urgency if current_urgency in {"low", "medium", "high"} else "medium"
+            current_classification = (
+                (selected.get("classification") or "ticket").strip().lower()
+            )
+            default_classification = "spam" if current_classification == "spam" else "ticket"
+
+            urgency_choice, progress_choice, classification_choice, edited_title = render_result(
+                {
+                    "classification": default_classification,
+                    "ticket": selected_ticket,
+                    "resolution": selected.get("resolution", ""),
+                },
+                submitted_request=selected.get("message", ""),
+                default_urgency=default_urgency,
+                default_status=default_status,
+                default_classification=default_classification,
+                key_prefix=f"selected_{selected.get('saved_id')}",
+            )
+
+            normalized_title = clean_ticket_title(edited_title)
+            if (
+                urgency_choice != current_urgency
+                or progress_choice != current_status
+                or classification_choice != default_classification
+                or normalized_title != clean_ticket_title(selected_ticket.get("title"))
+            ):
+                if urgency_choice != current_urgency:
+                    append_activity_log(
+                        selected,
+                        actor="human_agent",
+                        action_type="Priority changed",
+                        details=f"Urgency changed from {current_urgency} to {urgency_choice}.",
+                    )
+                if progress_choice != current_status:
+                    append_activity_log(
+                        selected,
+                        actor="human_agent",
+                        action_type="Status changed",
+                        details=f"Status changed from {current_status} to {progress_choice}.",
+                    )
+                if classification_choice != default_classification:
+                    append_activity_log(
+                        selected,
+                        actor="human_agent",
+                        action_type="Classification changed",
+                        details=f"Classification changed from {default_classification} to {classification_choice}.",
+                    )
+                if normalized_title != clean_ticket_title(selected_ticket.get("title")):
+                    append_activity_log(
+                        selected,
+                        actor="human_agent",
+                        action_type="Title updated",
+                        details=f"Title updated to '{normalized_title}'.",
+                    )
+                selected_ticket["urgency"] = urgency_choice
+                selected_ticket["title"] = normalized_title
+                selected["status"] = progress_choice
+                selected["classification"] = classification_choice
+                if progress_choice == "completed":
+                    st.session_state.open_tickets = [
+                        t
+                        for t in st.session_state.open_tickets
+                        if t.get("saved_id") != selected.get("saved_id")
+                    ]
+                    if not any(
+                        t.get("saved_id") == selected.get("saved_id")
+                        for t in st.session_state.closed_tickets
+                    ):
+                        st.session_state.closed_tickets.append(selected)
+                    st.session_state.deleted_tickets = [
+                        t
+                        for t in st.session_state.deleted_tickets
+                        if t.get("saved_id") != selected.get("saved_id")
+                    ]
+                else:
+                    st.session_state.closed_tickets = [
+                        t
+                        for t in st.session_state.closed_tickets
+                        if t.get("saved_id") != selected.get("saved_id")
+                    ]
+                    st.session_state.deleted_tickets = [
+                        t
+                        for t in st.session_state.deleted_tickets
+                        if t.get("saved_id") != selected.get("saved_id")
+                    ]
+                    if not any(
+                        t.get("saved_id") == selected.get("saved_id")
+                        for t in st.session_state.open_tickets
+                    ):
+                        st.session_state.open_tickets.append(selected)
+                persist_ticket_state()
+                st.rerun()
+
+            if show_queue_move and ticket_queue_label_fn and move_ticket_fn:
+                queue_targets = {
+                    "Open Queue": "open",
+                    "Blocked Queue": "blocked",
+                    "Archived Queue": "archived",
+                    "Deleted / Spam": "deleted",
+                }
+                queue_labels = list(queue_targets.keys())
+                current_label = ticket_queue_label_fn(selected, "details")
+                st.markdown('<div class="queue-move-control">', unsafe_allow_html=True)
+                selected_label = st.selectbox(
+                    "Move ticket to queue",
+                    options=queue_labels,
+                    index=queue_labels.index(current_label),
+                    key=f"move_details_{selected.get('saved_id')}",
+                )
+                if selected_label != current_label:
+                    move_ticket_fn(selected, queue_targets[selected_label])
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
+            render_activity_log(selected)
+        else:
+            render_empty_result_placeholder()
+    else:
+        render_empty_result_placeholder()
+
+
+def render_new_ticket_search_panel(form_key: str) -> tuple[bool, str]:
+    st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    with st.form(form_key, clear_on_submit=True):
+        message = st.text_area(
+            "Incoming support message",
+            key=f"message_input_{form_key}",
+            height=120,
+            placeholder="Paste a support ticket here...",
+        )
+        submitted = st.form_submit_button("Run triage", type="secondary", use_container_width=False)
+    st.markdown("</div>", unsafe_allow_html=True)
+    triage_feedback = st.session_state.triage_feedback
+    if triage_feedback:
+        feedback_type = triage_feedback.get("type", "info")
+        feedback_message = triage_feedback.get("message", "")
+        if feedback_type == "success":
+            st.success(feedback_message)
+        elif feedback_type == "error":
+            st.error(feedback_message)
+        elif feedback_type == "warning":
+            st.warning(feedback_message)
+        else:
+            st.info(feedback_message)
+    return submitted, message
+
+
 def persist_ticket_state() -> None:
     save_tickets(st.session_state.open_tickets)
     save_closed_tickets(st.session_state.closed_tickets)
@@ -792,7 +961,11 @@ closed_tickets = rank_tickets(list(st.session_state.closed_tickets))
 deleted_tickets = rank_tickets(list(st.session_state.deleted_tickets))
 all_tickets = open_tickets + closed_tickets + deleted_tickets
 
-workspace_tab, analytics_tab = st.tabs(["Triage Workspace", "Analytics Center"])
+workspace_tab, ticket_tab, analytics_tab = st.tabs(
+    ["Triage Workspace", "Ticket Desk", "Analytics Center"]
+)
+submitted = False
+message = ""
 
 with workspace_tab:
     left_col, middle_col, right_col = st.columns([1.15, 1.45, 1.4], gap="large")
@@ -984,164 +1157,33 @@ with workspace_tab:
         st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
         with st.container():
             st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
-            if st.session_state.selected_ticket_id:
-                selected = next(
-                    (
-                        entry
-                        for entry in all_tickets
-                        if entry.get("saved_id") == st.session_state.selected_ticket_id
-                    ),
-                    None,
-                )
-                if selected:
-                    selected_ticket = selected.get("ticket") or {}
-                    current_urgency = normalize_urgency(selected_ticket.get("urgency"))
-                    current_status = normalize_status(selected.get("status"))
-                    default_status = current_status if current_status in PROGRESS_OPTIONS else "in_progress"
-                    default_urgency = current_urgency if current_urgency in {"low", "medium", "high"} else "medium"
-                    current_classification = (
-                        (selected.get("classification") or "ticket").strip().lower()
-                    )
-                    default_classification = "spam" if current_classification == "spam" else "ticket"
-
-                    urgency_choice, progress_choice, classification_choice, edited_title = render_result(
-                        {
-                            "classification": default_classification,
-                            "ticket": selected_ticket,
-                            "resolution": selected.get("resolution", ""),
-                        },
-                        submitted_request=selected.get("message", ""),
-                        default_urgency=default_urgency,
-                        default_status=default_status,
-                        default_classification=default_classification,
-                        key_prefix=f"selected_{selected.get('saved_id')}",
-                    )
-
-                    normalized_title = clean_ticket_title(edited_title)
-                    if (
-                        urgency_choice != current_urgency
-                        or progress_choice != current_status
-                        or classification_choice != default_classification
-                        or normalized_title != clean_ticket_title(selected_ticket.get("title"))
-                    ):
-                        if urgency_choice != current_urgency:
-                            append_activity_log(
-                                selected,
-                                actor="human_agent",
-                                action_type="Priority changed",
-                                details=f"Urgency changed from {current_urgency} to {urgency_choice}.",
-                            )
-                        if progress_choice != current_status:
-                            append_activity_log(
-                                selected,
-                                actor="human_agent",
-                                action_type="Status changed",
-                                details=f"Status changed from {current_status} to {progress_choice}.",
-                            )
-                        if classification_choice != default_classification:
-                            append_activity_log(
-                                selected,
-                                actor="human_agent",
-                                action_type="Classification changed",
-                                details=f"Classification changed from {default_classification} to {classification_choice}.",
-                            )
-                        if normalized_title != clean_ticket_title(selected_ticket.get("title")):
-                            append_activity_log(
-                                selected,
-                                actor="human_agent",
-                                action_type="Title updated",
-                                details=f"Title updated to '{normalized_title}'.",
-                            )
-                        selected_ticket["urgency"] = urgency_choice
-                        selected_ticket["title"] = normalized_title
-                        selected["status"] = progress_choice
-                        selected["classification"] = classification_choice
-                        if progress_choice == "completed":
-                            st.session_state.open_tickets = [
-                                t
-                                for t in st.session_state.open_tickets
-                                if t.get("saved_id") != selected.get("saved_id")
-                            ]
-                            if not any(
-                                t.get("saved_id") == selected.get("saved_id")
-                                for t in st.session_state.closed_tickets
-                            ):
-                                st.session_state.closed_tickets.append(selected)
-                            st.session_state.deleted_tickets = [
-                                t
-                                for t in st.session_state.deleted_tickets
-                                if t.get("saved_id") != selected.get("saved_id")
-                            ]
-                        else:
-                            st.session_state.closed_tickets = [
-                                t
-                                for t in st.session_state.closed_tickets
-                                if t.get("saved_id") != selected.get("saved_id")
-                            ]
-                            st.session_state.deleted_tickets = [
-                                t
-                                for t in st.session_state.deleted_tickets
-                                if t.get("saved_id") != selected.get("saved_id")
-                            ]
-                            if not any(
-                                t.get("saved_id") == selected.get("saved_id")
-                                for t in st.session_state.open_tickets
-                            ):
-                                st.session_state.open_tickets.append(selected)
-                        persist_ticket_state()
-                        st.rerun()
-
-                    queue_targets = {
-                        "Open Queue": "open",
-                        "Blocked Queue": "blocked",
-                        "Archived Queue": "archived",
-                        "Deleted / Spam": "deleted",
-                    }
-                    queue_labels = list(queue_targets.keys())
-                    current_label = ticket_queue_label(selected, "details")
-                    st.markdown('<div class="queue-move-control">', unsafe_allow_html=True)
-                    selected_label = st.selectbox(
-                        "Move ticket to queue",
-                        options=queue_labels,
-                        index=queue_labels.index(current_label),
-                        key=f"move_details_{selected.get('saved_id')}",
-                    )
-                    if selected_label != current_label:
-                        move_ticket_to_queue(selected, queue_targets[selected_label])
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                    st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
-                    render_activity_log(selected)
-                else:
-                    render_empty_result_placeholder()
-            else:
-                render_empty_result_placeholder()
+            render_selected_ticket_details(
+                all_tickets,
+                show_queue_move=True,
+                ticket_queue_label_fn=ticket_queue_label,
+                move_ticket_fn=move_ticket_to_queue,
+            )
             st.markdown("</div>", unsafe_allow_html=True)
 
     with right_col:
-        st.markdown('<div class="three-col-header">🔎 New ticket search</div>', unsafe_allow_html=True)
-        st.markdown('<div class="panel-card">', unsafe_allow_html=True)
-        with st.form("triage_form", clear_on_submit=True):
-            message = st.text_area(
-                "Incoming support message",
-                key="message_input",
-                height=120,
-                placeholder="Paste a support ticket here...",
-            )
-            submitted = st.form_submit_button("Run triage", type="secondary", use_container_width=False)
-        st.markdown("</div>", unsafe_allow_html=True)
-        triage_feedback = st.session_state.triage_feedback
-        if triage_feedback:
-            feedback_type = triage_feedback.get("type", "info")
-            feedback_message = triage_feedback.get("message", "")
-            if feedback_type == "success":
-                st.success(feedback_message)
-            elif feedback_type == "error":
-                st.error(feedback_message)
-            elif feedback_type == "warning":
-                st.warning(feedback_message)
-            else:
-                st.info(feedback_message)
+        workspace_submitted, workspace_message = render_new_ticket_search_panel("triage_form_workspace")
+        if workspace_submitted:
+            submitted = True
+            message = workspace_message
+
+with ticket_tab:
+    ticket_left, ticket_right = st.columns([1.75, 1.25], gap="large")
+    with ticket_left:
+        st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
+        with st.container():
+            st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
+            render_selected_ticket_details(all_tickets, show_queue_move=False)
+            st.markdown("</div>", unsafe_allow_html=True)
+    with ticket_right:
+        desk_submitted, desk_message = render_new_ticket_search_panel("triage_form_ticket_desk")
+        if desk_submitted:
+            submitted = True
+            message = desk_message
 
 
     if submitted:
