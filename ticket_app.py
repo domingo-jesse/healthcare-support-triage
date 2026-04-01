@@ -918,6 +918,12 @@ if "triage_feedback" not in st.session_state:
     st.session_state.triage_feedback = None
 if "active_view" not in st.session_state:
     st.session_state.active_view = "Triage Workspace"
+if "pending_view" not in st.session_state:
+    st.session_state.pending_view = None
+
+if st.session_state.pending_view is not None:
+    st.session_state.active_view = st.session_state.pending_view
+    st.session_state.pending_view = None
 
 # Migration support: move completed tickets from open storage into archive storage.
 migrated_open_tickets = []
@@ -1124,7 +1130,7 @@ if st.session_state.active_view == "Triage Workspace":
                 ):
                     st.session_state.selected_ticket_id = ticket_id
                     st.session_state.active_queue = section_key
-                    st.session_state.active_view = "Ticket Desk"
+                    st.session_state.pending_view = "Ticket Desk"
                     st.rerun()
 
         queue_sections = [
@@ -1178,82 +1184,77 @@ if st.session_state.active_view == "Ticket Desk":
             st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
             render_selected_ticket_details(all_tickets, show_queue_move=False)
             st.markdown("</div>", unsafe_allow_html=True)
-    with ticket_right:
-        desk_submitted, desk_message = render_new_ticket_search_panel("triage_form_ticket_desk")
-        if desk_submitted:
-            submitted = True
-            message = desk_message
 
 
-    if submitted:
-        if not message.strip():
-            st.session_state.triage_feedback = {"type": "warning", "message": "Please enter a message."}
-            st.rerun()
-        else:
-            try:
-                with st.spinner("Analyzing issue..."):
-                    result = asyncio.run(run_workflow(WorkflowInput(input_as_text=message.strip())))
+if submitted:
+    if not message.strip():
+        st.session_state.triage_feedback = {"type": "warning", "message": "Please enter a message."}
+        st.rerun()
+    else:
+        try:
+            with st.spinner("Analyzing issue..."):
+                result = asyncio.run(run_workflow(WorkflowInput(input_as_text=message.strip())))
 
-                if result.get("ticket"):
-                    ticket_data = result["ticket"]
-                    ticket_data["urgency"] = normalize_urgency(ticket_data.get("urgency"))
-                    ticket_data["title"] = clean_ticket_title(ticket_data.get("title"))
-                else:
-                    snippet = " ".join(message.strip().split())[:60]
-                    ticket_data = {
-                        "ticketId": "",
-                        "title": f"Spam: {snippet}" if snippet else "Spam message",
-                        "urgency": "low",
-                    }
-
-                normalized_ticket_id = ensure_unique_ticket_id(
-                    ticket_data.get("ticketId"),
-                    st.session_state.open_tickets
-                    + st.session_state.closed_tickets
-                    + st.session_state.deleted_tickets,
-                )
-                ticket_data["ticketId"] = normalized_ticket_id
-
-                saved_entry = {
-                    "saved_id": normalized_ticket_id,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "status": "deleted" if result["classification"] == "spam" else "new",
-                    "message": message.strip(),
-                    "classification": result["classification"],
-                    "ticket": ticket_data,
-                    "resolution": result["resolution"],
+            if result.get("ticket"):
+                ticket_data = result["ticket"]
+                ticket_data["urgency"] = normalize_urgency(ticket_data.get("urgency"))
+                ticket_data["title"] = clean_ticket_title(ticket_data.get("title"))
+            else:
+                snippet = " ".join(message.strip().split())[:60]
+                ticket_data = {
+                    "ticketId": "",
+                    "title": f"Spam: {snippet}" if snippet else "Spam message",
+                    "urgency": "low",
                 }
-                ensure_activity_log(saved_entry)
+
+            normalized_ticket_id = ensure_unique_ticket_id(
+                ticket_data.get("ticketId"),
+                st.session_state.open_tickets
+                + st.session_state.closed_tickets
+                + st.session_state.deleted_tickets,
+            )
+            ticket_data["ticketId"] = normalized_ticket_id
+
+            saved_entry = {
+                "saved_id": normalized_ticket_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "status": "deleted" if result["classification"] == "spam" else "new",
+                "message": message.strip(),
+                "classification": result["classification"],
+                "ticket": ticket_data,
+                "resolution": result["resolution"],
+            }
+            ensure_activity_log(saved_entry)
+            append_activity_log(
+                saved_entry,
+                actor="ai",
+                action_type="AI triage completed",
+                details="Initial triage analysis and resolution draft generated.",
+            )
+            if result["classification"] == "spam":
                 append_activity_log(
                     saved_entry,
-                    actor="ai",
-                    action_type="AI triage completed",
-                    details="Initial triage analysis and resolution draft generated.",
+                    actor="system",
+                    action_type="Status changed",
+                    details="Ticket classified as spam and moved to deleted queue.",
                 )
-                if result["classification"] == "spam":
-                    append_activity_log(
-                        saved_entry,
-                        actor="system",
-                        action_type="Status changed",
-                        details="Ticket classified as spam and moved to deleted queue.",
-                    )
-                if result["classification"] == "spam":
-                    st.session_state.deleted_tickets.append(saved_entry)
-                    st.session_state.active_queue = "deleted"
-                else:
-                    st.session_state.open_tickets.append(saved_entry)
-                    st.session_state.active_queue = "open"
-                persist_ticket_state()
-                st.session_state.selected_ticket_id = saved_entry["saved_id"]
-                st.session_state.active_view = "Ticket Desk"
-                st.session_state.triage_feedback = {
-                    "type": "success",
-                    "message": "Analysis complete. Ticket added to the queue.",
-                }
-                st.rerun()
-            except Exception as e:
-                st.session_state.triage_feedback = {"type": "error", "message": f"Error: {e}"}
-                st.rerun()
+            if result["classification"] == "spam":
+                st.session_state.deleted_tickets.append(saved_entry)
+                st.session_state.active_queue = "deleted"
+            else:
+                st.session_state.open_tickets.append(saved_entry)
+                st.session_state.active_queue = "open"
+            persist_ticket_state()
+            st.session_state.selected_ticket_id = saved_entry["saved_id"]
+            st.session_state.pending_view = "Ticket Desk"
+            st.session_state.triage_feedback = {
+                "type": "success",
+                "message": "Analysis complete. Ticket added to the queue.",
+            }
+            st.rerun()
+        except Exception as e:
+            st.session_state.triage_feedback = {"type": "error", "message": f"Error: {e}"}
+            st.rerun()
 
 
 if st.session_state.active_view == "Analytics Center":
