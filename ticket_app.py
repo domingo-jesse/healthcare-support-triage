@@ -189,7 +189,8 @@ st.markdown(
             color: var(--text-primary);
         }
         .section-spacer {
-            height: 18px;
+            display: none;
+            height: 0;
         }
         div[data-testid="stTextArea"] textarea {
             border-radius: 10px;
