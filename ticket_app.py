@@ -677,6 +677,7 @@ def render_selected_ticket_details(
     show_queue_move: bool = False,
     ticket_queue_label_fn=None,
     move_ticket_fn=None,
+    show_activity_log: bool = True,
 ) -> None:
     if st.session_state.selected_ticket_id:
         selected = next(
@@ -806,12 +807,20 @@ def render_selected_ticket_details(
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
-            render_activity_log(selected)
+            if show_activity_log:
+                st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
+                render_activity_log(selected)
         else:
             render_empty_result_placeholder()
     else:
         render_empty_result_placeholder()
+
+
+def get_selected_ticket(all_tickets: list[dict]) -> dict | None:
+    selected_id = st.session_state.selected_ticket_id
+    if not selected_id:
+        return None
+    return next((entry for entry in all_tickets if entry.get("saved_id") == selected_id), None)
 
 
 def render_new_ticket_search_panel(form_key: str) -> tuple[bool, str]:
@@ -1189,7 +1198,26 @@ if st.session_state.active_view == "Ticket Desk":
         st.markdown('<div class="three-col-header">📋 Ticket details</div>', unsafe_allow_html=True)
         with st.container():
             st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
-            render_selected_ticket_details(all_tickets, show_queue_move=False)
+            render_selected_ticket_details(
+                all_tickets,
+                show_queue_move=False,
+                show_activity_log=False,
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+    with ticket_right:
+        st.markdown('<div class="three-col-header">🧾 Activity Log</div>', unsafe_allow_html=True)
+        with st.container():
+            st.markdown('<div class="scroll-panel">', unsafe_allow_html=True)
+            selected_ticket = get_selected_ticket(all_tickets)
+            if selected_ticket:
+                render_activity_log(selected_ticket)
+            else:
+                st.markdown(
+                    '<div class="panel-card"><div class="section-title">Activity Log</div>',
+                    unsafe_allow_html=True,
+                )
+                st.caption("Select a ticket from Ticket Desk to view activity.")
+                st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
 
