@@ -914,6 +914,8 @@ if "message_input" not in st.session_state:
     st.session_state.message_input = ""
 if "active_queue" not in st.session_state:
     st.session_state.active_queue = "open"
+if "queue_focus" not in st.session_state:
+    st.session_state.queue_focus = st.session_state.active_queue
 if "triage_feedback" not in st.session_state:
     st.session_state.triage_feedback = None
 if "active_view" not in st.session_state:
@@ -1148,14 +1150,19 @@ if st.session_state.active_view == "Triage Workspace":
         queue_options = ["open", "blocked", "archive", "deleted"]
         if st.session_state.active_queue not in queue_options:
             st.session_state.active_queue = "open"
+        if st.session_state.queue_focus not in queue_options:
+            st.session_state.queue_focus = st.session_state.active_queue
+        if st.session_state.queue_focus != st.session_state.active_queue:
+            st.session_state.queue_focus = st.session_state.active_queue
         st.radio(
             "Queue focus",
             options=queue_options,
             format_func=lambda key: queue_labels[key],
             horizontal=True,
-            key="active_queue",
+            key="queue_focus",
             label_visibility="collapsed",
         )
+        st.session_state.active_queue = st.session_state.queue_focus
         selected_section = next(
             (section for section in queue_sections if section[2] == st.session_state.active_queue),
             queue_sections[0],
