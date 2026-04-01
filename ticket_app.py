@@ -1213,31 +1213,35 @@ if st.session_state.active_view == "Triage Workspace":
                 urgency = normalize_urgency((ticket.get("ticket") or {}).get("urgency"))
                 urgency_styles = {
                     "high": {
-                        "border": "#fecaca",
-                        "bg": "#fef2f2",
-                        "text": "#991b1b",
-                        "selected_border": "#dc2626",
-                        "selected_shadow": "rgba(220, 38, 38, 0.25)",
-                        "selected_bg": "#fee2e2",
+                        "accent": "#dc2626",
+                        "border": "#e2e8f0",
+                        "bg": "#ffffff",
+                        "text": "#0f172a",
+                        "selected_border": "#cbd5e1",
+                        "selected_shadow": "rgba(148, 163, 184, 0.25)",
+                        "selected_bg": "#f8fafc",
                     },
                     "medium": {
-                        "border": "#fed7aa",
-                        "bg": "#fff7ed",
-                        "text": "#9a3412",
-                        "selected_border": "#ea580c",
-                        "selected_shadow": "rgba(234, 88, 12, 0.25)",
-                        "selected_bg": "#ffedd5",
+                        "accent": "#f59e0b",
+                        "border": "#e2e8f0",
+                        "bg": "#ffffff",
+                        "text": "#0f172a",
+                        "selected_border": "#cbd5e1",
+                        "selected_shadow": "rgba(148, 163, 184, 0.25)",
+                        "selected_bg": "#f8fafc",
                     },
                     "low": {
-                        "border": "#bbf7d0",
-                        "bg": "#f0fdf4",
-                        "text": "#166534",
-                        "selected_border": "#16a34a",
-                        "selected_shadow": "rgba(22, 163, 74, 0.25)",
-                        "selected_bg": "#dcfce7",
+                        "accent": "#22c55e",
+                        "border": "#e2e8f0",
+                        "bg": "#ffffff",
+                        "text": "#0f172a",
+                        "selected_border": "#cbd5e1",
+                        "selected_shadow": "rgba(148, 163, 184, 0.25)",
+                        "selected_bg": "#f8fafc",
                     },
                 }
                 button_style = urgency_styles.get(urgency, urgency_styles["medium"])
+                urgency_label = urgency.title()
                 selection_css = ""
                 if is_selected:
                     selection_css = f"""
@@ -1253,12 +1257,12 @@ if st.session_state.active_view == "Triage Workspace":
                     .st-key-{widget_key} button {{
                         border-radius: 10px;
                         border: 1px solid {button_style["border"]} !important;
+                        box-shadow: inset 4px 0 0 {button_style["accent"]};
                         min-height: 50px;
                         padding: 0.55rem 0.65rem;
                         text-align: left;
                         font-size: 0.86rem;
                         font-weight: 600;
-                        box-shadow: none;
                         transition: all 120ms ease-in-out;
                         background: {button_style["bg"]} !important;
                         color: {button_style["text"]} !important;
@@ -1274,7 +1278,7 @@ if st.session_state.active_view == "Triage Workspace":
                     unsafe_allow_html=True,
                 )
                 if st.button(
-                    title,
+                    f"● {title}   [{urgency_label}]",
                     key=widget_key,
                     use_container_width=True,
                     help=f"Open ticket #{ticket_id[-6:] if ticket_id else 'N/A'}",
