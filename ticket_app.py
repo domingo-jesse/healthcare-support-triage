@@ -192,6 +192,81 @@ st.markdown(
             display: none;
             height: 0;
         }
+        .analytics-shell {
+            background: linear-gradient(145deg, rgba(248,250,252,0.92), rgba(241,245,249,0.78));
+            border: 1px solid rgba(203, 213, 225, 0.8);
+            border-radius: 16px;
+            padding: 1rem;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+            margin-bottom: 1rem;
+        }
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.65rem;
+            margin-top: 0.3rem;
+        }
+        .analytics-kpi {
+            background: transparent;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 12px;
+            padding: 0.65rem 0.7rem;
+        }
+        .analytics-kpi-label {
+            font-size: 0.74rem;
+            color: #64748b;
+            margin-bottom: 0.2rem;
+        }
+        .analytics-kpi-value {
+            font-size: 1.55rem;
+            font-weight: 700;
+            line-height: 1.05;
+            color: #0f172a;
+        }
+        .analytics-kpi-note {
+            font-size: 0.72rem;
+            color: #475569;
+            margin-top: 0.2rem;
+        }
+        .analytics-subgrid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.65rem;
+            margin-top: 0.55rem;
+        }
+        .analytics-chip {
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 12px;
+            padding: 0.55rem 0.65rem;
+            background: rgba(248, 250, 252, 0.45);
+        }
+        .analytics-chip-label {
+            font-size: 0.72rem;
+            color: #64748b;
+        }
+        .analytics-chip-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-top: 0.1rem;
+        }
+        .analytics-recent-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            margin-top: 0.55rem;
+        }
+        .analytics-recent-list div[data-testid="stButton"] > button {
+            background: rgba(248,250,252,0.4);
+            border: 1px solid rgba(148, 163, 184, 0.34);
+            text-align: left;
+            justify-content: flex-start;
+            padding-left: 0.7rem;
+        }
+        .analytics-recent-list div[data-testid="stButton"] > button:hover {
+            border-color: rgba(59,130,246,0.5);
+            background: rgba(239,246,255,0.7);
+        }
         div[data-testid="stTextArea"] textarea {
             border-radius: 10px;
             border: 1px solid var(--border);
@@ -226,6 +301,20 @@ st.markdown(
             color: var(--text-muted);
             margin-top: 0.2rem;
             margin-bottom: 0.45rem;
+        }
+        @media (max-width: 1200px) {
+            .analytics-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+            .analytics-subgrid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 760px) {
+            .analytics-grid,
+            .analytics-subgrid {
+                grid-template-columns: repeat(1, minmax(0, 1fr));
+            }
         }
         .queue-item-row {
             margin: 0.15rem 0;
@@ -958,18 +1047,74 @@ def persist_ticket_state() -> None:
 def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict], deleted_tickets: list[dict]) -> None:
     st.markdown('<div class="three-col-header">📊 Analytics center</div>', unsafe_allow_html=True)
 
-    total_tickets = len(open_tickets) + len(closed_tickets) + len(deleted_tickets)
+    all_tickets = open_tickets + closed_tickets + deleted_tickets
+    now_utc = datetime.now(timezone.utc)
+    total_tickets = len(all_tickets)
     active_tickets = len([t for t in open_tickets if normalize_status(t.get("status")) in {"new", "in_progress"}])
     blocked_tickets = len([t for t in open_tickets if normalize_status(t.get("status")) == "blocked"])
     archived_tickets = len(closed_tickets)
     spam_tickets = len([t for t in deleted_tickets if (t.get("classification") or "").lower() == "spam"])
 
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Total tickets", total_tickets)
-    c2.metric("Active", active_tickets)
-    c3.metric("Blocked", blocked_tickets)
-    c4.metric("Archived", archived_tickets)
-    c5.metric("Spam", spam_tickets)
+    high_urgency_open = 0
+    triage_duration_minutes: list[float] = []
+    stale_ticket_count = 0
+    ticket_age_hours: list[float] = []
+
+    for ticket in all_tickets:
+        status = normalize_status(ticket.get("status"))
+        ticket_data = ticket.get("ticket") or {}
+        urgency = normalize_urgency(ticket_data.get("urgency"))
+        if status in {"new", "in_progress", "blocked"} and urgency == "high":
+            high_urgency_open += 1
+
+        created_ts = ticket.get("created_at")
+        created_dt = None
+        if created_ts:
+            try:
+                created_dt = datetime.fromisoformat(created_ts.replace("Z", "+00:00"))
+                ticket_age_hours.append(max(0.0, (now_utc - created_dt).total_seconds() / 3600))
+                if status in {"new", "in_progress", "blocked"} and (now_utc - created_dt) > timedelta(hours=24):
+                    stale_ticket_count += 1
+            except ValueError:
+                created_dt = None
+
+        first_triage_at = None
+        for log_entry in ensure_activity_log(ticket):
+            action_type = (log_entry.get("action_type") or "").strip().lower()
+            if "triage" in action_type:
+                first_triage_at = log_entry.get("timestamp")
+                break
+
+        if created_dt and first_triage_at:
+            try:
+                triage_dt = datetime.fromisoformat(first_triage_at.replace("Z", "+00:00"))
+                triage_duration_minutes.append(max(0.0, (triage_dt - created_dt).total_seconds() / 60))
+            except ValueError:
+                continue
+
+    avg_first_triage_minutes = (sum(triage_duration_minutes) / len(triage_duration_minutes)) if triage_duration_minutes else 0.0
+    avg_ticket_age_hours = (sum(ticket_age_hours) / len(ticket_age_hours)) if ticket_age_hours else 0.0
+
+    st.markdown('<div class="analytics-shell">', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="analytics-grid">
+            <div class="analytics-kpi"><div class="analytics-kpi-label">Total tickets</div><div class="analytics-kpi-value">{total_tickets}</div><div class="analytics-kpi-note">Across all queues</div></div>
+            <div class="analytics-kpi"><div class="analytics-kpi-label">Active</div><div class="analytics-kpi-value">{active_tickets}</div><div class="analytics-kpi-note">New + in progress</div></div>
+            <div class="analytics-kpi"><div class="analytics-kpi-label">Blocked</div><div class="analytics-kpi-value">{blocked_tickets}</div><div class="analytics-kpi-note">Needs external action</div></div>
+            <div class="analytics-kpi"><div class="analytics-kpi-label">Archived</div><div class="analytics-kpi-value">{archived_tickets}</div><div class="analytics-kpi-note">Completed tickets</div></div>
+            <div class="analytics-kpi"><div class="analytics-kpi-label">Spam</div><div class="analytics-kpi-value">{spam_tickets}</div><div class="analytics-kpi-note">Deleted as spam</div></div>
+        </div>
+        <div class="analytics-subgrid">
+            <div class="analytics-chip"><div class="analytics-chip-label">High urgency open</div><div class="analytics-chip-value">{high_urgency_open}</div></div>
+            <div class="analytics-chip"><div class="analytics-chip-label">Avg first triage time</div><div class="analytics-chip-value">{avg_first_triage_minutes:.0f}m</div></div>
+            <div class="analytics-chip"><div class="analytics-chip-label">Open > 24h</div><div class="analytics-chip-value">{stale_ticket_count}</div></div>
+            <div class="analytics-chip"><div class="analytics-chip-label">Avg ticket age</div><div class="analytics-chip-value">{avg_ticket_age_hours:.1f}h</div></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
     urgency_totals = {"high": 0, "medium": 0, "low": 0}
     for ticket in open_tickets + closed_tickets:
@@ -988,8 +1133,9 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
     st.markdown('<div class="section-spacer"></div>', unsafe_allow_html=True)
     st.markdown('<div class="panel-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Recent tickets</div>', unsafe_allow_html=True)
+    st.markdown('<div class="analytics-recent-list">', unsafe_allow_html=True)
     all_ticket_map = {
-        ticket.get("saved_id"): ticket for ticket in (open_tickets + closed_tickets + deleted_tickets)
+        ticket.get("saved_id"): ticket for ticket in all_tickets
     }
     recent_viewed_ids = st.session_state.get("recent_viewed_ticket_ids", [])
     recent_viewed_tickets = [all_ticket_map[ticket_id] for ticket_id in recent_viewed_ids if ticket_id in all_ticket_map]
@@ -1013,6 +1159,7 @@ def render_analytics_center(open_tickets: list[dict], closed_tickets: list[dict]
                 track_recent_ticket_view(ticket_id)
                 st.session_state.pending_view = "Ticket Desk"
                 st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
